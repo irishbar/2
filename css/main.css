@@ -46,10 +46,10 @@
   --shadow-inset:  inset 0 1px 0 rgba(255,255,255,0.9);
 
   /* ══ FONTS — change here to switch ══
-     Arabic Display : Cairo | Tajawal | Noto Kufi Arabic
-     Currently      : Cairo (display) + Tajawal (body)   */
-  --font-display:  'Cairo', 'Tajawal', sans-serif;
-  --font-body:     'Tajawal', 'Cairo', sans-serif;
+     Arabic Display : Noto Kufi Arabic (premium/luxury)
+     Arabic Body    : Cairo (elegant & readable on mobile) */
+  --font-display:  'Noto Kufi Arabic', 'Cairo', sans-serif;
+  --font-body:     'Cairo', 'Tajawal', sans-serif;
   --font-en:       'Righteous', 'Barlow', sans-serif;
   --font-en-body:  'Barlow', sans-serif;
 
@@ -75,6 +75,10 @@ body {
   overflow-x: hidden;
   line-height: 1.7;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  word-break: normal;
+  overflow-wrap: break-word;
 }
 
 body::before {
