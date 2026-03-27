@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Irish Bar — المتجر</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥃</text></svg>">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/store.css">
+  <style>
+    /* ── Map Modal ── */
+    .map-modal-overlay {
+      position: fixed; inset: 0; z-index: 9000;
+      background: rgba(10,8,5,0.72);
+      backdrop-filter: blur(8px);
+      display: flex; align-items: flex-end; justify-content: center;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.35s ease;
+    }
+    .map-modal-overlay.open { opacity: 1; pointer-events: all; }
+
+    .map-modal-box {
+      background: #fff;
+      border-radius: 28px 28px 0 0;
+      width: 100%; max-width: 540px;
+      padding: 0 0 env(safe-area-inset-bottom);
+      transform: translateY(100%);
+      transition: transform 0.4s cubic-bezier(0.32,0.72,0,1);
+      box-shadow: 0 -8px 48px rgba(184,146,42,0.18);
+    }
+    .map-modal-overlay.open .map-modal-box { transform: translateY(0); }
+
+    .map-modal-handle {
+      width: 44px; height: 5px;
+      background: rgba(184,146,42,0.25);
+      border-radius: 99px;
+      margin: 14px auto 0;
+    }
+    .map-modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 20px 12px;
+      border-bottom: 1px solid rgba(184,146,42,0.12);
+    }
+    .map-modal-title {
+      font-size: 1.05rem; font-weight: 700; color: var(--text-primary);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .map-modal-title i { color: var(--gold); }
+
+    /* Map container with crystal border */
+    .map-crystal-wrap {
+      margin: 14px 16px;
+      border-radius: 18px;
+      overflow: hidden;
+      border: 2px solid rgba(184,146,42,0.25);
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,0.9) inset,
+        0 8px 32px rgba(184,146,42,0.15);
+      position: relative;
+    }
+    #deliveryMap { height: 280px; width: 100%; }
+
+    /* GPS button over map */
+    .map-gps-btn {
+      position: absolute; bottom: 14px; left: 14px; z-index: 1000;
+      background: #fff;
+      border: 1.5px solid rgba(184,146,42,0.35);
+      border-radius: 12px;
+      width: 42px; height: 42px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: 1.1rem; color: var(--gold);
+      box-shadow: 0 4px 16px rgba(184,146,42,0.18);
+      transition: var(--transition);
+    }
+    .map-gps-btn:hover { background: var(--gold-pale); }
+
+    .map-distance-badge {
+      position: absolute; top: 14px; right: 14px; z-index: 1000;
+      background: rgba(255,255,255,0.95);
+      border: 1.5px solid rgba(184,146,42,0.3);
+      border-radius: 99px;
+      padding: 6px 14px;
+      font-size: 0.82rem; font-weight: 600; color: var(--gold-dark);
+      box-shadow: 0 2px 12px rgba(184,146,42,0.15);
+      display: none;
+    }
+
+    .map-address-row {
+      margin: 0 16px 6px;
+      background: var(--bg-elevated);
+      border: 1.5px solid var(--border);
+      border-radius: 14px;
+      padding: 12px 16px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .map-address-row i { color: var(--gold); font-size: 1rem; flex-shrink: 0; }
+    .map-address-text {
+      font-size: 0.85rem; color: var(--text-secondary); flex: 1;
+      line-height: 1.4;
+    }
+
+    .map-fee-row {
+      margin: 0 16px 14px;
+      background: var(--gold-pale);
+      border: 1.5px solid var(--gold-border);
+      border-radius: 14px;
+      padding: 12px 16px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .map-fee-label { font-size: 0.88rem; color: var(--text-secondary); font-weight: 500; }
+    .map-fee-value { font-size: 1rem; font-weight: 700; color: var(--gold-dark); }
+
+    .map-confirm-btn {
+      display: block; width: calc(100% - 32px);
+      margin: 0 16px 16px;
+      background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+      color: #fff; border: none; border-radius: 16px;
+      padding: 15px; font-size: 1rem; font-weight: 700;
+      cursor: pointer; font-family: var(--font-body);
+      box-shadow: 0 4px 20px rgba(184,146,42,0.3);
+      transition: var(--transition);
+    }
+    .map-confirm-btn:hover { opacity: 0.92; transform: translateY(-1px); }
+    .map-confirm-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    /* Location indicator in checkout */
+    .location-chip {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 14px;
+      background: var(--gold-pale);
+      border: 1.5px solid var(--gold-border);
+      border-radius: 12px;
+      cursor: pointer; transition: var(--transition);
+      margin-bottom: 4px;
+    }
+    .location-chip:hover { background: #f5ead0; }
+    .location-chip i { color: var(--gold); }
+    .location-chip-text { font-size: 0.85rem; color: var(--text-secondary); flex: 1; }
+    .location-chip-change { font-size: 0.78rem; color: var(--gold); font-weight: 600; }
+
+    /* All-categories view */
+    .cat-section-title {
+      display: flex; align-items: center; gap: 10px;
+      padding: 20px 16px 10px;
+      font-size: 1rem; font-weight: 700; color: var(--text-primary);
+    }
+    .cat-section-title .cat-icon { font-size: 1.3rem; }
+    .cat-section-divider {
+      height: 1px; background: var(--border-light);
+      margin: 4px 16px 8px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Page Loader -->
+<div id="page-loader">
+  <div class="loader-logo">IRISH BAR</div>
+  <div class="loader-sub">PREMIUM IRISH SELECTION</div>
+  <div class="spinner"></div>
+</div>
+
+<!-- Toast Container -->
+<div id="toast-container"></div>
+
+<!-- ── Header ── -->
+<header class="site-header">
+  <a class="header-logo" href="index.html">
+    <div class="header-logo-icon"><i class="fas fa-martini-glass" style="font-size:1.1rem;"></i></div>
+    <div>
+      <div class="header-logo-text">IRISH BAR</div>
+      <div class="header-logo-subtitle">PREMIUM IRISH SELECTION</div>
+    </div>
+  </a>
+  <div class="header-actions">
+    <button class="icon-btn" id="userBtn" title="حسابي" onclick="goToProfile()">
+      <i class="fas fa-user"></i>
+    </button>
+    <button class="cart-btn" id="cartBtn" onclick="openCartDrawer()">
+      <i class="fas fa-shopping-bag"></i>
+      <span class="cart-badge" id="cartBadge">0</span>
+    </button>
+  </div>
+</header>
+
+<!-- ── Hero ── -->
+<div class="store-hero">
+  <div class="store-hero-inner">
+    <h1>تجربة أيرلندية أصيلة</h1>
+    <p>أفخر المشروبات الأيرلندية، مُوصَّلة إلى بابك</p>
+  </div>
+</div>
+
+<!-- ── Search ── -->
+<div class="search-wrapper">
+  <div class="search-box">
+    <i class="fas fa-search"></i>
+    <input type="text" class="search-input" id="searchInput"
+           placeholder="ابحث عن منتج..." oninput="handleSearch(this.value)">
+  </div>
+</div>
+
+<!-- ── Categories ── -->
+<div class="categories-section">
+  <div class="section-label">الفئات</div>
+  <div class="categories-scroll" id="categoriesContainer"></div>
+</div>
+
+<!-- ── Products ── -->
+<div class="products-section">
+  <div class="section-label" id="productsLabel" style="display:none;">المنتجات</div>
+  <div id="productsGrid"></div>
+</div>
+
+<!-- ── Cart Drawer ── -->
+<div class="cart-drawer-overlay" id="cartOverlay" onclick="closeCartDrawer()"></div>
+<div class="cart-drawer" id="cartDrawer">
+  <div class="cart-drawer-handle"></div>
+  <div class="cart-drawer-header">
+    <div class="cart-drawer-title">
+      <i class="fas fa-shopping-bag"></i>
+      سلة المشتريات
+    </div>
+    <button class="icon-btn" onclick="closeCartDrawer()">
+      <i class="fas fa-times"></i>
+    </button>
+  </div>
+  <div class="cart-items-list" id="cartItemsList"></div>
+  <div class="cart-drawer-footer">
+    <div class="cart-total-row">
+      <span class="cart-total-label">المجموع الكلي</span>
+      <span class="cart-total-value" id="cartTotalVal">0 د.ع</span>
+    </div>
+    <button class="btn btn-primary btn-lg btn-block" onclick="openCheckout()" id="checkoutBtn">
+      <i class="fas fa-truck"></i>
+      متابعة الطلب
+    </button>
+  </div>
+</div>
+
+<!-- ── Checkout Modal ── -->
+<div class="modal-overlay" id="checkoutModal">
+  <div class="modal-box">
+    <div class="modal-handle"></div>
+    <div class="modal-title">
+      <i class="fas fa-truck" style="color:var(--gold)"></i>
+      معلومات التوصيل
+    </div>
+
+    <div class="checkout-summary" id="checkoutSummary"></div>
+
+    <form id="checkoutForm" novalidate>
+      <div class="form-group">
+        <label class="form-label">الاسم الكامل <span style="color:var(--gold-dark);">*</span></label>
+        <input type="text" class="form-input" id="chName" placeholder="اسمك الكامل" required autocomplete="name">
+      </div>
+      <div class="form-group">
+        <label class="form-label">رقم الهاتف <span style="color:var(--gold-dark);">*</span></label>
+        <input type="tel" class="form-input" id="chPhone" placeholder="07XXXXXXXXX" required autocomplete="tel" inputmode="numeric" maxlength="11">
+      </div>
+      <div class="form-group">
+        <label class="form-label">موقع التوصيل</label>
+        <div class="location-chip" onclick="openMapModal()">
+          <i class="fas fa-map-marker-alt"></i>
+          <span class="location-chip-text" id="locationChipText">اضغط لتحديد موقعك على الخارطة</span>
+          <span class="location-chip-change">تحديد</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">ملاحظات إضافية (اختياري)</label>
+        <textarea class="form-textarea" id="chAddress" rows="2"
+                  placeholder="أي تفاصيل إضافية..."></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">وقت التوصيل</label>
+        <select class="form-select" id="chDelivery">
+          <option value="اسرع وقت">🚀 أسرع وقت ممكن</option>
+          <option value="10:00-12:00">🕙 10:00 ص – 12:00 ظ</option>
+          <option value="12:00-14:00">🕛 12:00 ظ – 2:00 م</option>
+          <option value="14:00-16:00">🕑 2:00 م – 4:00 م</option>
+          <option value="16:00-18:00">🕓 4:00 م – 6:00 م</option>
+          <option value="18:00-20:00">🕕 6:00 م – 8:00 م</option>
+        </select>
+      </div>
+
+      <!-- Totals -->
+      <div style="background:var(--bg-elevated);border:1.5px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+          <span style="color:var(--text-secondary);font-size:0.9rem;">مجموع المنتجات</span>
+          <span style="font-weight:600;" id="summaryProductsTotal">0 د.ع</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+          <span style="color:var(--text-secondary);font-size:0.9rem;">أجرة التوصيل</span>
+          <span style="font-weight:600;color:var(--gold);" id="summaryDeliveryFee">—</span>
+        </div>
+        <div style="height:1px;background:var(--border);margin:8px 0;"></div>
+        <div style="display:flex;justify-content:space-between;">
+          <span style="font-weight:700;">المجموع الكلي</span>
+          <span style="font-weight:800;font-size:1.1rem;color:var(--gold-dark);" id="summaryGrandTotal">0 د.ع</span>
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-lg btn-block" id="placeOrderBtn">
+        <i class="fas fa-check-circle"></i>
+        تأكيد الطلب
+      </button>
+      <button type="button" class="btn btn-ghost btn-block" style="margin-top:10px;"
+              onclick="closeModal('checkoutModal')">إلغاء</button>
+    </form>
+  </div>
+</div>
+
+<!-- ── Product Detail Modal ── -->
+<div class="modal-overlay" id="productDetailModal" onclick="if(event.target===this)closeProductModal()">
+  <div class="modal-box" style="max-height:85vh;overflow-y:auto;">
+    <div class="modal-handle"></div>
+    <div id="productDetailContent"></div>
+  </div>
+</div>
+
+<!-- ── Floating Cart Button ── -->
+<button class="floating-cart-btn" id="floatingCartBtn" onclick="openCartDrawer()" style="display:none;">
+  <i class="fas fa-shopping-bag"></i>
+  <span class="floating-cart-badge" id="floatingCartBadge">0</span>
+  <span class="floating-cart-total" id="floatingCartTotal"></span>
+</button>
+
+<!-- ── Map Modal ── -->
+<div class="map-modal-overlay" id="mapModal">
+  <div class="map-modal-box">
+    <div class="map-modal-handle"></div>
+    <div class="map-modal-header">
+      <div class="map-modal-title">
+        <i class="fas fa-map-marker-alt"></i>
+        حدد موقعك للتوصيل
+      </div>
+      <button class="icon-btn" onclick="closeMapModal()">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+
+    <div class="map-crystal-wrap">
+      <div id="deliveryMap"></div>
+      <button class="map-gps-btn" onclick="goToMyLocation()" title="موقعي الحالي">
+        <i class="fas fa-crosshairs"></i>
+      </button>
+      <div class="map-distance-badge" id="distanceBadge">
+        <i class="fas fa-route"></i> <span id="distanceText">—</span>
+      </div>
+    </div>
+
+    <div class="map-address-row">
+      <i class="fas fa-location-dot"></i>
+      <div class="map-address-text" id="mapAddressText">اسحب الخارطة لتحديد موقعك</div>
+    </div>
+
+    <div class="map-fee-row">
+      <span class="map-fee-label"><i class="fas fa-motorcycle" style="margin-left:6px;color:var(--gold);"></i>أجرة التوصيل</span>
+      <span class="map-fee-value" id="mapFeeVal">—</span>
+    </div>
+
+    <button class="map-confirm-btn" id="mapConfirmBtn" onclick="confirmLocation()" disabled>
+      <i class="fas fa-check"></i> تأكيد الموقع
+    </button>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script type="module">
+  import { onAuthChange } from './js/auth.js';
+  import {
+    fetchCategories, fetchProducts,
+    getCart, addToCart, updateCartQty, clearCart, getCartTotal, getCartCount,
+    fetchDeliverySettings, calcDeliveryFee, calcDistance
+  } from './js/store.js';
+  import { createOrder } from './js/orders.js';
+  import { showToast, openModal, closeModal, hideLoader, formatPrice } from './js/ui.js';
+
+  window.closeModal = closeModal;
+
+  let currentUser      = null;
+  let currentProfile   = null;
+  let categories       = [];
+  let allProducts      = [];
+  let activeCatId      = 'all';
+  let deliverySettings = null;
+  let selectedLocation = null; // { lat, lng, fee, address }
+  let leafletMap       = null;
+  let marker           = null;
+
+  // ── Init ──
+  onAuthChange(async (user, profile) => {
+    currentUser    = user;
+    currentProfile = profile;
+    await loadStore();
+    hideLoader();
+    renderCart();
+  });
+
+  async function loadStore() {
+    try {
+      [categories, allProducts, deliverySettings] = await Promise.all([
+        fetchCategories(),
+        fetchProducts(),
+        fetchDeliverySettings()
+      ]);
+      renderCategories();
+      renderAllByCategory(); // show all products grouped by category on start
+    } catch (e) {
+      showToast('تعذّر تحميل المنتجات', 'error');
+      hideLoader();
+    }
+  }
+
+  // ── Categories ──
+  function renderCategories() {
+    const el = document.getElementById('categoriesContainer');
+    el.innerHTML =
+      `<button class="category-pill active" data-id="all" onclick="selectCategory('all')">
+        <i class="fas fa-th-large"></i> الكل
+       </button>` +
+      categories.map(c => `
+        <button class="category-pill" data-id="${c.id}" onclick="selectCategory('${c.id}')">
+          <span>${c.icon || '🍺'}</span> ${c.name}
+        </button>
+      `).join('');
+  }
+
+  window.selectCategory = function(catId) {
+    activeCatId = catId;
+    document.querySelectorAll('.category-pill').forEach(el =>
+      el.classList.toggle('active', el.dataset.id === catId)
+    );
+    const label = document.getElementById('productsLabel');
+    if (catId === 'all') {
+      label.style.display = 'none';
+      renderAllByCategory();
+    } else {
+      const cat = categories.find(c => c.id === catId);
+      label.style.display = 'block';
+      label.textContent = cat ? cat.name : 'المنتجات';
+      const filtered = allProducts.filter(p => p.categoryId === catId);
+      document.getElementById('productsGrid').innerHTML = renderProductCards(filtered);
+    }
+  };
+
+  // ── Render all products grouped by category ──
+  function renderAllByCategory() {
+    const grid = document.getElementById('productsGrid');
+    if (!categories.length) {
+      grid.innerHTML = emptyState();
+      return;
+    }
+    let html = '';
+    categories.forEach(cat => {
+      const prods = allProducts.filter(p => p.categoryId === cat.id);
+      if (!prods.length) return;
+      html += `
+        <div class="cat-section-title">
+          <span class="cat-icon">${cat.icon || '🍺'}</span>
+          <span>${cat.name}</span>
+        </div>
+        <div class="cat-section-divider"></div>
+        <div class="products-grid">${renderProductCards(prods)}</div>
+      `;
+    });
+    // products with no category
+    const noCat = allProducts.filter(p => !p.categoryId);
+    if (noCat.length) {
+      html += `<div class="products-grid">${renderProductCards(noCat)}</div>`;
+    }
+    grid.innerHTML = html || emptyState();
+  }
+
+  function emptyState() {
+    return `<div style="text-align:center;padding:48px 20px;color:var(--text-muted);">
+      <div style="font-size:3rem;margin-bottom:12px;">🍺</div>
+      <div>لا توجد منتجات حالياً</div>
+    </div>`;
+  }
+
+  function renderProductCards(products) {
+    if (!products.length) return '';
+    return products.map(p => `
+      <div class="product-card ${p.available === false ? 'product-unavailable' : ''}" onclick="openProductModal(${JSON.stringify(p).replace(/"/g,'&quot;')})">
+        <div class="product-emoji" style="${p.imageUrl ? 'padding:0;overflow:hidden;' : ''}">
+          ${p.imageUrl
+            ? `<img src="${p.imageUrl}" style="width:100%;height:100%;object-fit:cover;">`
+            : (p.emoji || '🍺')
+          }
+        </div>
+        <div class="product-name">${p.name}</div>
+        <div class="product-desc">${p.description || ''}</div>
+        <div class="product-price">${formatPrice(p.price)}</div>
+        ${p.available === false
+          ? `<div style="font-size:0.75rem;color:var(--text-muted);text-align:center;">غير متاح حالياً</div>`
+          : `<button class="product-add-btn" onclick="event.stopPropagation();handleAddToCart('${p.id}')">
+               <i class="fas fa-plus"></i> أضف للسلة
+             </button>`
+        }
+      </div>
+    `).join('');
+  }
+
+  // ── Search ──
+  window.handleSearch = function(q) {
+    const term = q.trim().toLowerCase();
+    const label = document.getElementById('productsLabel');
+    if (!term) {
+      label.style.display = 'none';
+      if (activeCatId === 'all') { renderAllByCategory(); return; }
+      selectCategory(activeCatId); return;
+    }
+    label.style.display = 'block';
+    label.textContent = `نتائج البحث: "${q}"`;
+    const results = allProducts.filter(p =>
+      p.name.toLowerCase().includes(term) ||
+      (p.description || '').toLowerCase().includes(term)
+    );
+    document.getElementById('productsGrid').innerHTML = renderProductCards(results) || emptyState();
+  };
+
+  // ── Cart ──
+  window.handleAddToCart = function(productId) {
+    const product = allProducts.find(p => p.id === productId);
+    if (!product) return;
+    addToCart(product);
+    renderCart();
+    showToast(`تمت الإضافة: ${product.name}`, 'success');
+    const badge = document.getElementById('cartBadge');
+    badge.style.transform = 'scale(1.5)';
+    setTimeout(() => badge.style.transform = '', 200);
+  };
+
+  // ── Product Detail Modal ──
+  window.openProductModal = function(p) {
+    const inCart = getCart().find(i => i.id === p.id);
+    document.getElementById('productDetailContent').innerHTML = `
+      <div style="text-align:center;">
+        <div style="width:100%;aspect-ratio:16/9;background:var(--bg-secondary);border-radius:var(--radius-md);overflow:hidden;margin-bottom:16px;display:flex;align-items:center;justify-content:center;">
+          ${p.imageUrl
+            ? `<img src="${p.imageUrl}" style="width:100%;height:100%;object-fit:cover;">`
+            : `<span style="font-size:5rem;">${p.emoji || '🍺'}</span>`
+          }
+        </div>
+        <h2 style="font-family:var(--font-display);font-size:1.3rem;font-weight:900;margin-bottom:6px;">${p.name}</h2>
+        ${p.description ? `<p style="color:var(--text-muted);font-size:0.88rem;margin-bottom:12px;">${p.description}</p>` : ''}
+        <div style="font-family:var(--font-display);font-size:1.6rem;font-weight:900;color:var(--gold-dark);margin-bottom:20px;">${formatPrice(p.price)}</div>
+        ${p.available === false
+          ? `<div style="color:var(--text-muted);padding:12px;background:var(--bg-secondary);border-radius:var(--radius-md);">غير متاح حالياً</div>`
+          : `<button class="btn btn-primary btn-lg btn-block" onclick="handleAddToCart('${p.id}');closeProductModal();showToast('تمت الإضافة ✅','success');">
+               <i class="fas fa-shopping-bag"></i> أضف للسلة ${inCart ? '('+inCart.quantity+')' : ''}
+             </button>`
+        }
+        <button class="btn btn-ghost btn-block" style="margin-top:10px;" onclick="closeProductModal()">إغلاق</button>
+      </div>
+    `;
+    document.getElementById('productDetailModal').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  };
+  window.closeProductModal = function() {
+    document.getElementById('productDetailModal').classList.remove('open');
+    document.body.style.overflow = '';
+  };
+
+  function renderCart() {
+    const cart  = getCart();
+    const count = getCartCount(cart);
+    const total = getCartTotal(cart);
+    const badge = document.getElementById('cartBadge');
+    badge.textContent = count;
+    badge.classList.toggle('visible', count > 0);
+    // Floating cart button
+    const fab = document.getElementById('floatingCartBtn');
+    if (fab) {
+      fab.style.display = count > 0 ? 'flex' : 'none';
+      document.getElementById('floatingCartBadge').textContent = count;
+      document.getElementById('floatingCartTotal').textContent = formatPrice(total);
+    }
+    document.getElementById('cartTotalVal').textContent = formatPrice(total);
+    const list = document.getElementById('cartItemsList');
+    if (!cart.length) {
+      list.innerHTML = `<div class="empty-cart">
+        <i class="fas fa-shopping-bag"></i>
+        <div style="font-size:1rem;color:var(--text-secondary);margin-bottom:6px;">سلتك فارغة</div>
+        <div style="font-size:0.83rem;">أضف منتجات لتبدأ طلبك</div>
+      </div>`;
+      return;
+    }
+    list.innerHTML = cart.map(item => `
+      <div class="cart-item">
+        <div class="cart-item-icon">${item.imageUrl
+          ? `<img src="${item.imageUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:8px;">`
+          : (item.emoji || '🍺')}</div>
+        <div class="cart-item-info">
+          <div class="cart-item-name">${item.name}</div>
+          <div class="cart-item-unit">${formatPrice(item.price)} / قطعة</div>
+        </div>
+        <div class="cart-item-subtotal">${formatPrice(item.price * item.quantity)}</div>
+        <div class="cart-item-controls">
+          <button class="qty-btn" onclick="changeQty('${item.id}', ${item.quantity - 1})">−</button>
+          <span class="qty-display">${item.quantity}</span>
+          <button class="qty-btn" onclick="changeQty('${item.id}', ${item.quantity + 1})">+</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  window.changeQty = function(id, qty) { updateCartQty(id, qty); renderCart(); };
+
+  window.openCartDrawer = function() {
+    renderCart();
+    document.getElementById('cartOverlay').classList.add('open');
+    document.getElementById('cartDrawer').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  };
+  window.closeCartDrawer = function() {
+    document.getElementById('cartOverlay').classList.remove('open');
+    document.getElementById('cartDrawer').classList.remove('open');
+    document.body.style.overflow = '';
+  };
+
+  // ── Checkout ──
+  window.openCheckout = function() {
+    const cart = getCart();
+    if (!cart.length) { showToast('السلة فارغة', 'warning'); return; }
+    closeCartDrawer();
+    if (currentProfile) document.getElementById('chName').value = currentProfile.name || '';
+    updateCheckoutTotals();
+    openModal('checkoutModal');
+  };
+
+  function updateCheckoutTotals() {
+    const cart     = getCart();
+    const products = getCartTotal(cart);
+    const fee      = selectedLocation ? selectedLocation.fee : 0;
+    document.getElementById('summaryProductsTotal').textContent = formatPrice(products);
+    document.getElementById('summaryDeliveryFee').textContent   = selectedLocation
+      ? formatPrice(fee)
+      : 'حدد موقعك';
+    document.getElementById('summaryGrandTotal').textContent    = selectedLocation
+      ? formatPrice(products + fee)
+      : formatPrice(products);
+    // summary items
+    document.getElementById('checkoutSummary').innerHTML =
+      cart.map(i => `
+        <div class="checkout-summary-item">
+          <span>${i.emoji || '🍺'} ${i.name} × ${i.quantity}</span>
+          <span>${formatPrice(i.price * i.quantity)}</span>
+        </div>
+      `).join('');
+  }
+
+  document.getElementById('checkoutForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name  = document.getElementById('chName').value.trim();
+    const phone = document.getElementById('chPhone').value.trim();
+    if (!name)  { showToast('الرجاء إدخال الاسم الكامل', 'warning'); document.getElementById('chName').focus(); return; }
+    if (!phone) { showToast('الرجاء إدخال رقم الهاتف', 'warning'); document.getElementById('chPhone').focus(); return; }
+    if (!/^07\d{9}$/.test(phone)) { showToast('رقم الهاتف يجب أن يبدأ بـ 07 ويتكون من 11 رقم', 'warning'); document.getElementById('chPhone').focus(); return; }
+    if (!selectedLocation) { showToast('الرجاء تحديد موقعك على الخارطة', 'warning'); return; }
+    const btn = document.getElementById('placeOrderBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الإرسال...';
+    try {
+      const cart = getCart();
+      await createOrder({
+        customerId:   currentUser?.uid || 'guest',
+        customerName: document.getElementById('chName').value,
+        phone:        document.getElementById('chPhone').value,
+        address:      document.getElementById('chAddress').value,
+        deliveryTime: document.getElementById('chDelivery').value,
+        location:     { lat: selectedLocation.lat, lng: selectedLocation.lng },
+        deliveryFee:  selectedLocation.fee,
+        items:        cart,
+        total:        getCartTotal(cart) + selectedLocation.fee
+      });
+      clearCart();
+      renderCart();
+      closeModal('checkoutModal');
+      document.getElementById('checkoutForm').reset();
+      selectedLocation = null;
+      document.getElementById('locationChipText').textContent = 'اضغط لتحديد موقعك على الخارطة';
+      showToast('🎉 تم استلام طلبك بنجاح!', 'success', 4000);
+    } catch { showToast('حدث خطأ، حاول مجدداً', 'error'); }
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-check-circle"></i> تأكيد الطلب';
+  });
+
+  // ── Map Modal ──
+  window.openMapModal = function() {
+    document.getElementById('mapModal').classList.add('open');
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => initMap(), 300);
+  };
+  window.closeMapModal = function() {
+    document.getElementById('mapModal').classList.remove('open');
+    document.body.style.overflow = '';
+  };
+
+  function initMap() {
+    if (leafletMap) { leafletMap.invalidateSize(); return; }
+
+    // Center: Karbala default or delivery center from settings
+    const cLat = deliverySettings?.centerLat || 32.6136;
+    const cLng = deliverySettings?.centerLng || 44.0092;
+
+    leafletMap = L.map('deliveryMap', {
+      center: [cLat, cLng],
+      zoom: 14,
+      zoomControl: false
+    });
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap'
+    }).addTo(leafletMap);
+
+    L.control.zoom({ position: 'bottomright' }).addTo(leafletMap);
+
+    // Custom marker icon
+    const icon = L.divIcon({
+      html: `<div style="
+        width:36px;height:36px;
+        background:linear-gradient(135deg,#b8922a,#d4aa45);
+        border-radius:50% 50% 50% 0;
+        transform:rotate(-45deg);
+        border:3px solid #fff;
+        box-shadow:0 4px 16px rgba(184,146,42,0.4);
+      "></div>`,
+      iconSize: [36, 36],
+      iconAnchor: [18, 36],
+      className: ''
+    });
+
+    marker = L.marker([cLat, cLng], { icon, draggable: true }).addTo(leafletMap);
+
+    // Update on drag
+    marker.on('dragend', () => updateMapLocation(marker.getLatLng()));
+
+    // Update on map click
+    leafletMap.on('click', (e) => {
+      marker.setLatLng(e.latlng);
+      updateMapLocation(e.latlng);
+    });
+
+    // If already selected, go there
+    if (selectedLocation) {
+      const ll = L.latLng(selectedLocation.lat, selectedLocation.lng);
+      marker.setLatLng(ll);
+      leafletMap.setView(ll, 15);
+      updateMapLocation(ll);
+    }
+  }
+
+  function updateMapLocation(latlng) {
+    const { lat, lng } = latlng;
+    const fee = calcDeliveryFee(lat, lng, deliverySettings);
+    const dist = getDistance(lat, lng);
+
+    document.getElementById('distanceBadge').style.display = 'flex';
+    document.getElementById('distanceText').textContent = dist.toFixed(1) + ' كم';
+    document.getElementById('mapFeeVal').textContent = formatPrice(fee);
+    document.getElementById('mapAddressText').textContent =
+      `خط العرض: ${lat.toFixed(5)} | خط الطول: ${lng.toFixed(5)}`;
+    document.getElementById('mapConfirmBtn').disabled = false;
+
+    // Reverse geocode (optional, best effort)
+    fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.display_name) {
+          const short = d.display_name.split(',').slice(0,3).join('، ');
+          document.getElementById('mapAddressText').textContent = short;
+        }
+      }).catch(() => {});
+
+    window._pendingLocation = { lat, lng, fee };
+  }
+
+  function getDistance(lat, lng) {
+    const cLat = deliverySettings?.centerLat || 32.6136;
+    const cLng = deliverySettings?.centerLng || 44.0092;
+    return calcDistance(lat, lng, cLat, cLng);
+  }
+
+  window.goToMyLocation = function() {
+    if (!navigator.geolocation) { showToast('المتصفح لا يدعم GPS', 'error'); return; }
+    navigator.geolocation.getCurrentPosition(pos => {
+      const ll = L.latLng(pos.coords.latitude, pos.coords.longitude);
+      marker.setLatLng(ll);
+      leafletMap.setView(ll, 16);
+      updateMapLocation(ll);
+    }, () => showToast('تعذّر تحديد موقعك', 'error'));
+  };
+
+  window.confirmLocation = function() {
+    if (!window._pendingLocation) return;
+    selectedLocation = {
+      ...window._pendingLocation,
+      address: document.getElementById('mapAddressText').textContent
+    };
+    document.getElementById('locationChipText').textContent =
+      '📍 ' + selectedLocation.address;
+    updateCheckoutTotals();
+    closeMapModal();
+    showToast('✅ تم تحديد الموقع', 'success');
+  };
+
+  // ── Profile ──
+  window.goToProfile = function() {
+    window.location.href = currentProfile
+      ? 'pages/dashboard.html'
+      : 'pages/auth.html';
+  };
+
+  document.getElementById('checkoutModal').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('checkoutModal')) closeModal('checkoutModal');
+  });
+</script>
+</body>
+</html>

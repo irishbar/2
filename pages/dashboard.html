@@ -1,0 +1,1483 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Irish Bar — لوحة التحكم</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥃</text></svg>">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="../css/main.css">
+  <link rel="stylesheet" href="../css/dashboard.css">
+  <style>
+    .sidebar-logo span, .loader-logo,
+    .topbar-title { letter-spacing: 2px; }
+    .item-price, .order-total, .stat-value {
+      font-family: 'Barlow', 'Cairo', sans-serif !important;
+      font-weight: 700 !important;
+    }
+    /* Toggle Switch */
+    .toggle-switch {
+      width: 48px; height: 26px;
+      background: #ddd;
+      border-radius: 999px;
+      cursor: pointer;
+      position: relative;
+      transition: background 0.3s;
+      flex-shrink: 0;
+    }
+    .toggle-switch::after {
+      content: '';
+      position: absolute;
+      width: 20px; height: 20px;
+      background: #fff;
+      border-radius: 50%;
+      top: 3px; right: 3px;
+      transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    }
+    .toggle-switch.on {
+      background: linear-gradient(135deg, var(--gold-light), var(--gold-dark));
+    }
+    .toggle-switch.on::after {
+      transform: translateX(-22px);
+    }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<!-- Page Loader -->
+<div id="page-loader">
+  <div class="loader-logo" style="font-family:var(--font-en);letter-spacing:6px;">IRISH BAR</div>
+  <div class="loader-sub" style="font-family:var(--font-en-body);font-weight:600;letter-spacing:3px;text-transform:uppercase;">PREMIUM IRISH SELECTION</div>
+  <div class="spinner"></div>
+</div>
+
+<!-- Toast Container -->
+<div id="toast-container"></div>
+
+<div class="dashboard-layout">
+
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">
+        <div class="sidebar-logo-icon"><i class="fas fa-martini-glass" style="font-size:1rem;color:var(--gold-light);"></i></div>
+        <span style="font-family:var(--font-en);letter-spacing:3px;font-size:1.1rem;">IRISH BAR</span>
+      </div>
+      <div class="sidebar-user-info">
+        <div class="sidebar-user-name" id="sidebarUserName">...</div>
+        <div class="sidebar-user-role" id="sidebarUserRole"></div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav" id="sidebarNav">
+      <!-- Rendered by role -->
+    </nav>
+
+    <div class="sidebar-footer">
+      <button class="btn btn-ghost btn-block btn-sm" onclick="handleLogout()">
+        <i class="fas fa-sign-out-alt"></i>
+        تسجيل الخروج
+      </button>
+    </div>
+  </aside>
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+  <!-- ── Main Content ── -->
+  <main style="flex:1; min-width:0;">
+
+    <!-- Top Bar (mobile) -->
+    <div class="dashboard-topbar">
+      <button class="icon-btn" id="sidebarToggle" onclick="toggleSidebar()">
+        <i class="fas fa-bars"></i>
+      </button>
+      <div class="topbar-title" id="topbarTitle">لوحة التحكم</div>
+      <a href="../index.html" class="icon-btn" title="المتجر">
+        <i class="fas fa-store"></i>
+      </a>
+    </div>
+
+    <!-- Dashboard Content Area -->
+    <div class="dashboard-content container" id="dashboardContent">
+      <div style="text-align:center;padding:60px 20px;">
+        <div class="spinner"></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ── Bottom Nav (mobile) ── -->
+<nav class="bottom-nav" id="bottomNav"></nav>
+
+<!-- ── Modals ── -->
+
+<!-- Add Product Modal -->
+<div class="modal-overlay" id="addProductModal">
+  <div class="modal-box">
+    <div class="modal-handle"></div>
+    <div class="modal-title"><i class="fas fa-plus-circle" style="color:var(--gold)"></i> إضافة منتج</div>
+    <form id="addProductForm" novalidate>
+      <div class="form-group">
+        <label class="form-label">اسم المنتج</label>
+        <input type="text" class="form-input" id="apName" placeholder="مثال: جيمسون" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">الفئة</label>
+        <select class="form-select" id="apCategory" required>
+          <option value="">اختر الفئة</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">السعر (د.ع)</label>
+        <input type="number" class="form-input" id="apPrice" placeholder="مثال: 55000" min="0" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">الوصف</label>
+        <textarea class="form-textarea" id="apDesc" rows="2" placeholder="وصف مختصر للمنتج"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">إيموجي المنتج (اختياري)</label>
+        <input type="text" class="form-input" id="apEmoji" placeholder="مثال: 🥃 🍺 🍷" value="🥃">
+      </div>
+      <div class="form-group">
+        <label class="form-label">صورة المنتج (اختياري)</label>
+        <div id="imgUploadArea" style="border:2px dashed var(--border);border-radius:var(--radius-md);padding:20px;text-align:center;cursor:pointer;transition:var(--transition);background:var(--bg-elevated);" onclick="document.getElementById('apImageFile').click()">
+          <div id="imgPreview" style="display:none;margin-bottom:10px;">
+            <img id="imgPreviewEl" src="" style="max-height:120px;border-radius:8px;max-width:100%;">
+          </div>
+          <div id="imgPlaceholder">
+            <i class="fas fa-cloud-upload-alt" style="font-size:1.8rem;color:var(--gold);display:block;margin-bottom:8px;"></i>
+            <span style="color:var(--text-muted);font-size:0.85rem;">اضغط لاختيار صورة</span>
+          </div>
+          <div id="imgUploading" style="display:none;color:var(--gold);font-size:0.85rem;">
+            <i class="fas fa-spinner fa-spin"></i> جاري الرفع على ImgBB...
+          </div>
+        </div>
+        <input type="file" id="apImageFile" accept="image/*" style="display:none" onchange="handleImageUpload(this)">
+        <input type="hidden" id="apImageUrl">
+      </div>
+      <div class="form-group" style="display:flex;align-items:center;gap:12px;">
+        <input type="checkbox" id="apAvailable" checked style="width:auto">
+        <label for="apAvailable" class="form-label" style="margin:0">متاح للبيع</label>
+      </div>
+      <button type="submit" class="btn btn-primary btn-block" id="addProductBtn">
+        <i class="fas fa-plus"></i> إضافة المنتج
+      </button>
+      <button type="button" class="btn btn-ghost btn-block" style="margin-top:8px;"
+              onclick="closeModal('addProductModal')">إلغاء</button>
+    </form>
+  </div>
+</div>
+
+<!-- Add Category Modal -->
+<div class="modal-overlay" id="addCategoryModal">
+  <div class="modal-box">
+    <div class="modal-handle"></div>
+    <div class="modal-title"><i class="fas fa-tags" style="color:var(--gold)"></i> إضافة فئة</div>
+    <form id="addCategoryForm" novalidate>
+      <div class="form-group">
+        <label class="form-label">اسم الفئة</label>
+        <input type="text" class="form-input" id="acName" placeholder="مثال: ويسكي أيرلندي" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">إيموجي الفئة</label>
+        <input type="text" class="form-input" id="acIcon" placeholder="🥃" value="🍺">
+      </div>
+      <button type="submit" class="btn btn-primary btn-block">
+        <i class="fas fa-plus"></i> إضافة الفئة
+      </button>
+      <button type="button" class="btn btn-ghost btn-block" style="margin-top:8px;"
+              onclick="closeModal('addCategoryModal')">إلغاء</button>
+    </form>
+  </div>
+</div>
+
+<!-- Update Status Modal -->
+<div class="modal-overlay" id="statusModal">
+  <div class="modal-box">
+    <div class="modal-handle"></div>
+    <div class="modal-title"><i class="fas fa-edit" style="color:var(--gold)"></i> تحديث حالة الطلب</div>
+    <input type="hidden" id="statusOrderId">
+    <div class="form-group">
+      <label class="form-label">الحالة الجديدة</label>
+      <select class="form-select" id="statusSelect">
+        <option value="جديد">🔵 جديد</option>
+        <option value="قيد التجهيز">🟡 قيد التجهيز</option>
+        <option value="في التوصيل">🟢 في التوصيل</option>
+        <option value="مكتمل">✅ مكتمل</option>
+        <option value="ملغي">❌ ملغي</option>
+      </select>
+    </div>
+    <button class="btn btn-primary btn-block" onclick="confirmStatusUpdate()">
+      <i class="fas fa-save"></i> حفظ
+    </button>
+    <button class="btn btn-ghost btn-block" style="margin-top:8px;"
+            onclick="closeModal('statusModal')">إلغاء</button>
+  </div>
+</div>
+
+
+<!-- ── Edit Product Modal ── -->
+<div class="modal-overlay" id="editProductModal">
+  <div class="modal-box">
+    <div class="modal-handle"></div>
+    <div class="modal-title"><i class="fas fa-edit"></i> تعديل المنتج</div>
+    <input type="hidden" id="epId">
+    <form id="editProductForm" novalidate>
+      <div class="form-group">
+        <label class="form-label">اسم المنتج</label>
+        <input type="text" class="form-input" id="epName" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">الفئة</label>
+        <select class="form-select" id="epCategory"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">السعر (د.ع)</label>
+        <input type="number" class="form-input" id="epPrice" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">الوصف</label>
+        <textarea class="form-textarea" id="epDesc" rows="2"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">إيموجي</label>
+        <input type="text" class="form-input" id="epEmoji" placeholder="🍺">
+      </div>
+      <div class="form-group">
+  <label class="form-label">رابط الصورة (اختياري)</label>
+  <input type="url" class="form-input" id="epImageUrl" placeholder="https://...">
+  <div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px;">
+    إذا أضفت صورة ستظهر بدل الإيموجي
+  </div>
+</div>
+      <div class="form-group" style="display:flex;align-items:center;gap:12px;">
+        <input type="checkbox" id="epAvailable" style="width:18px;height:18px;accent-color:var(--gold);">
+        <label for="epAvailable" class="form-label" style="margin:0;">متاح للبيع</label>
+      </div>
+      <button type="submit" class="btn btn-primary btn-block" id="editProductBtn">
+        <i class="fas fa-save"></i> حفظ التعديلات
+      </button>
+      <button type="button" class="btn btn-ghost btn-block" style="margin-top:8px;"
+              onclick="closeModal('editProductModal')">إلغاء</button>
+    </form>
+  </div>
+</div>
+
+<!-- ── Edit Category Modal ── -->
+<div class="modal-overlay" id="editCategoryModal">
+  <div class="modal-box">
+    <div class="modal-handle"></div>
+    <div class="modal-title"><i class="fas fa-tag"></i> تعديل الفئة</div>
+    <input type="hidden" id="ecId">
+    <form id="editCategoryForm" novalidate>
+      <div class="form-group">
+        <label class="form-label">اسم الفئة</label>
+        <input type="text" class="form-input" id="ecName" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">أيقونة (إيموجي)</label>
+        <input type="text" class="form-input" id="ecIcon" placeholder="🍺">
+      </div>
+      <div class="form-group">
+        <label class="form-label">الترتيب</label>
+        <input type="number" class="form-input" id="ecOrder" placeholder="1">
+      </div>
+      <button type="submit" class="btn btn-primary btn-block" id="editCategoryBtn">
+        <i class="fas fa-save"></i> حفظ التعديلات
+      </button>
+      <button type="button" class="btn btn-ghost btn-block" style="margin-top:8px;"
+              onclick="closeModal('editCategoryModal')">إلغاء</button>
+    </form>
+  </div>
+</div>
+
+<!-- ── Add/Edit User Modal ── -->
+<div class="modal-overlay" id="userModal">
+  <div class="modal-box">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="userModalTitle"><i class="fas fa-user-plus"></i> إضافة مستخدم</div>
+    <input type="hidden" id="umId">
+    <form id="userForm" novalidate>
+      <div class="form-group">
+        <label class="form-label">الاسم</label>
+        <input type="text" class="form-input" id="umName" placeholder="اسم المستخدم" required>
+      </div>
+      <div id="umEmailGroup" class="form-group">
+        <label class="form-label">البريد الإلكتروني</label>
+        <input type="email" class="form-input" id="umEmail" placeholder="example@email.com">
+      </div>
+      <div id="umPassGroup" class="form-group">
+        <label class="form-label">كلمة المرور <span style="color:var(--text-muted);font-weight:400;">(للمستخدم الجديد)</span></label>
+        <input type="password" class="form-input" id="umPass" placeholder="••••••••" minlength="6">
+      </div>
+      <div class="form-group">
+        <label class="form-label">الصلاحية</label>
+        <select class="form-select" id="umRole">
+          <option value="customer">🛒 عميل</option>
+          <option value="manager">🔧 مدير</option>
+          <option value="admin">👑 مدير عام</option>
+        </select>
+      </div>
+      <button type="submit" class="btn btn-primary btn-block" id="userSubmitBtn">
+        <i class="fas fa-save"></i> حفظ
+      </button>
+      <button type="button" class="btn btn-ghost btn-block" style="margin-top:8px;"
+              onclick="closeModal('userModal')">إلغاء</button>
+    </form>
+  </div>
+</div>
+
+<script type="module">
+  import { auth, db } from '../js/firebase-config.js';
+  import { onAuthChange, logout } from '../js/auth.js';
+  import { fetchCategories, fetchProducts, addProduct, updateProduct, deleteProduct, addCategory, fetchDeliverySettings, saveDeliverySettings } from '../js/store.js';
+  import { fetchAllOrders, fetchMyOrders, updateOrderStatus, listenToOrders, ORDER_STATUSES, getStatusBadgeClass, formatPrice } from '../js/orders.js';
+  import { showToast, openModal, closeModal, hideLoader, formatDate } from '../js/ui.js';
+
+  window.openModal = openModal;
+  window.closeModal = closeModal;
+
+  // ── ImgBB Upload ──
+  const IMGBB_KEY = '9bab59197bd489ad54ef8917dff4ce81';
+
+  window.handleImageUpload = async function(input) {
+    const file = input.files[0];
+    if (!file) return;
+    // Show preview locally first
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      document.getElementById('imgPreviewEl').src = e.target.result;
+      document.getElementById('imgPreview').style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+    // Upload to ImgBB
+    document.getElementById('imgPlaceholder').style.display = 'none';
+    document.getElementById('imgUploading').style.display = 'block';
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+      const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_KEY}`, {
+        method: 'POST', body: formData
+      });
+      const data = await res.json();
+      if (data.success) {
+        document.getElementById('apImageUrl').value = data.data.url;
+        document.getElementById('imgUploading').style.display = 'none';
+        document.getElementById('imgUploadArea').style.borderColor = 'var(--green-light)';
+        showToast('تم رفع الصورة ✅', 'success');
+      } else {
+        throw new Error('فشل الرفع');
+      }
+    } catch (err) {
+      document.getElementById('imgUploading').style.display = 'none';
+      document.getElementById('imgPlaceholder').style.display = 'block';
+      document.getElementById('apImageUrl').value = '';
+      showToast('فشل رفع الصورة، حاول مجدداً', 'error');
+    }
+  };
+
+  let currentProfile = null;
+  let categories     = [];
+  let products       = [];
+  let orders         = [];
+  let currentPage    = '';
+
+  // ── Auth Guard ──
+  onAuthChange(async (user, profile) => {
+    if (!user || !profile) {
+      window.location.href = 'auth.html';
+      return;
+    }
+    currentProfile = profile;
+    setupUI(profile);
+    hideLoader();
+    navigateTo(getDefaultPage(profile.role));
+  });
+
+  function getDefaultPage(role) {
+    if (role === 'admin' || role === 'manager') return 'orders';
+    return 'my-orders';
+  }
+
+  // ── Setup UI by Role ──
+  function setupUI(profile) {
+    document.getElementById('sidebarUserName').textContent = profile.name;
+    document.getElementById('sidebarUserRole').textContent = getRoleLabel(profile.role);
+
+    const navItems = getNavItems(profile.role);
+    const navHtml  = navItems.map(item => `
+      <a class="nav-item" data-page="${item.page}" onclick="navigateTo('${item.page}')">
+        <i class="fas ${item.icon}"></i>
+        <span>${item.label}</span>
+      </a>
+    `).join('');
+    document.getElementById('sidebarNav').innerHTML = navHtml;
+
+    // Bottom Nav
+    const bottomHtml = navItems.slice(0, 5).map(item => `
+      <button class="bottom-nav-item" data-page="${item.page}" onclick="navigateTo('${item.page}')">
+        <i class="fas ${item.icon}"></i>
+        <span>${item.label}</span>
+      </button>
+    `).join('');
+    document.getElementById('bottomNav').innerHTML = bottomHtml;
+  }
+
+  function getNavItems(role) {
+    const items = {
+      admin: [
+        { page: 'orders',        icon: 'fa-receipt',         label: 'الطلبات' },
+        { page: 'products',      icon: 'fa-box-open',        label: 'المنتجات' },
+        { page: 'categories',    icon: 'fa-tags',            label: 'الفئات' },
+        { page: 'users',         icon: 'fa-users',           label: 'المستخدمون' },
+        { page: 'delivery',      icon: 'fa-motorcycle',      label: 'التوصيل' },
+        { page: 'notifications', icon: 'fa-bell',            label: 'الإشعارات' },
+        { page: 'stats',         icon: 'fa-chart-bar',       label: 'الإحصائيات' },
+        { page: 'my-orders',     icon: 'fa-shopping-bag',    label: 'طلباتي' },
+      ],
+      manager: [
+        { page: 'orders',     icon: 'fa-receipt',         label: 'الطلبات' },
+        { page: 'products',   icon: 'fa-box-open',        label: 'المنتجات' },
+        { page: 'categories', icon: 'fa-tags',            label: 'الفئات' },
+        { page: 'my-orders',  icon: 'fa-shopping-bag',    label: 'طلباتي' },
+      ],
+      customer: [
+        { page: 'my-orders',  icon: 'fa-shopping-bag',    label: 'طلباتي' },
+        { page: 'profile',    icon: 'fa-user-circle',     label: 'حسابي' },
+      ]
+    };
+    return items[role] || items.customer;
+  }
+
+  function getRoleLabel(role) {
+    const labels = { admin: '👑 مدير عام', manager: '🔧 مدير', customer: '🛒 عميل' };
+    return labels[role] || role;
+  }
+
+  // ── Navigation ──
+  window.navigateTo = function(page) {
+    currentPage = page;
+    document.getElementById('topbarTitle').textContent = getPageTitle(page);
+    document.querySelectorAll('.nav-item, .bottom-nav-item').forEach(el => {
+      el.classList.toggle('active', el.dataset.page === page);
+    });
+    closeSidebar();
+    renderPage(page);
+  };
+
+  function getPageTitle(page) {
+    const titles = {
+      orders: 'إدارة الطلبات', products: 'إدارة المنتجات',
+      categories: 'إدارة الفئات', users: 'إدارة المستخدمين',
+      stats: 'الإحصائيات', 'my-orders': 'طلباتي', profile: 'حسابي',
+      delivery: 'إعدادات التوصيل', notifications: 'إعدادات الإشعارات'
+    };
+    return titles[page] || 'لوحة التحكم';
+  }
+
+  // ── Render Pages ──
+  async function renderPage(page) {
+    const content = document.getElementById('dashboardContent');
+    content.innerHTML = `<div style="text-align:center;padding:60px 20px;"><div class="spinner"></div></div>`;
+
+    try {
+      if (page === 'orders')     await renderOrdersPage(content);
+      else if (page === 'products')   await renderProductsPage(content);
+      else if (page === 'categories') await renderCategoriesPage(content);
+      else if (page === 'users')      await renderUsersPage(content);
+      else if (page === 'stats')      await renderStatsPage(content);
+      else if (page === 'my-orders')  await renderMyOrdersPage(content);
+      else if (page === 'profile')    renderProfilePage(content);
+      else if (page === 'delivery')       await renderDeliveryPage(content);
+      else if (page === 'notifications')  await renderNotificationsPage(content);
+    } catch (e) {
+      console.error('Page load error:', e);
+      content.innerHTML = `
+        <div style="text-align:center;padding:40px;color:var(--text-muted);">
+          <i class="fas fa-exclamation-triangle" style="font-size:2rem;color:var(--gold);display:block;margin-bottom:12px;"></i>
+          <p style="margin-bottom:16px;">حدث خطأ أثناء التحميل</p>
+          <button class="btn btn-primary" onclick="navigateTo('${page}')">
+            <i class="fas fa-redo"></i> إعادة المحاولة
+          </button>
+        </div>`;
+    }
+  }
+
+  // ─────────────────────────────────────
+  // ORDERS PAGE
+  // ─────────────────────────────────────
+  async function renderOrdersPage(content) {
+    orders = await fetchAllOrders();
+    content.innerHTML = `
+      <div class="section-card">
+        <div class="section-card-header">
+          <div class="section-card-title"><i class="fas fa-receipt"></i> جميع الطلبات</div>
+          <span class="badge badge-gold">${orders.length} طلب</span>
+        </div>
+        <div class="section-card-body" id="ordersList">
+          ${orders.length === 0 ? '<div style="text-align:center;padding:40px;color:var(--text-muted);">لا توجد طلبات</div>' : ''}
+          ${orders.map(o => renderOrderCard(o)).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderOrderCard(o) {
+    const badge = getStatusBadgeClass(o.status);
+    const itemsText = o.items?.map(i => `${i.emoji || ''} ${i.name} ×${i.quantity}`).join('، ') || '';
+    return `
+      <div class="order-card">
+        <div class="order-card-header">
+          <div>
+            <div class="order-id">#${o.id.slice(-6).toUpperCase()}</div>
+            <div class="order-date">${formatDate(o.createdAt)}</div>
+          </div>
+          <span class="badge ${badge}">${o.status}</span>
+        </div>
+        <div class="order-customer">${o.customerName}</div>
+        <div class="order-address"><i class="fas fa-phone" style="color:var(--gold);margin-left:4px;"></i>${o.phone} &nbsp;|&nbsp; <i class="fas fa-map-marker-alt" style="color:var(--gold);margin-left:4px;"></i>${o.address}</div>
+        <div class="order-items-preview">${itemsText}</div>
+        <div class="order-footer">
+          <div class="order-total">${formatPrice(o.total)}</div>
+          <button class="btn btn-secondary btn-sm" onclick="openStatusModal('${o.id}', '${o.status}')">
+            <i class="fas fa-edit"></i> تحديث
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  window.openStatusModal = function(orderId, currentStatus) {
+    document.getElementById('statusOrderId').value = orderId;
+    document.getElementById('statusSelect').value  = currentStatus;
+    openModal('statusModal');
+  };
+
+  window.confirmStatusUpdate = async function() {
+    const id     = document.getElementById('statusOrderId').value;
+    const status = document.getElementById('statusSelect').value;
+    try {
+      await updateOrderStatus(id, status);
+      showToast('تم تحديث حالة الطلب', 'success');
+      closeModal('statusModal');
+      await renderPage('orders');
+    } catch { showToast('حدث خطأ', 'error'); }
+  };
+
+  // ─────────────────────────────────────
+  // PRODUCTS PAGE
+  // ─────────────────────────────────────
+  async function renderProductsPage(content) {
+    [categories, products] = await Promise.all([fetchCategories(), fetchProducts()]);
+    const catOptions = categories.map(c => `<option value="${c.id}">${c.icon} ${c.name}</option>`).join('');
+    document.getElementById('apCategory').innerHTML = '<option value="">اختر الفئة</option>' + catOptions;
+
+    function buildProductsHTML(prods) {
+      const byCategory = {};
+      categories.forEach(c => { byCategory[c.id] = []; });
+      prods.forEach(p => {
+        if (byCategory[p.categoryId] !== undefined) byCategory[p.categoryId].push(p);
+        else { if (!byCategory['other']) byCategory['other'] = []; byCategory['other'].push(p); }
+      });
+
+      const catList = [...categories];
+      if (byCategory['other'] && byCategory['other'].length)
+        catList.push({ id: 'other', name: 'أخرى', icon: '📦' });
+
+      return catList.map(cat => {
+        const catProducts = byCategory[cat.id] || [];
+        if (!catProducts.length) return '';
+        return `
+          <div class="section-card" style="margin-bottom:20px;">
+            <div class="section-card-header">
+              <div class="section-card-title">${cat.icon} ${cat.name}</div>
+              <span class="badge badge-gold">${catProducts.length}</span>
+            </div>
+            <div class="admin-products-grid">
+              ${catProducts.map(p => `
+                <div class="admin-product-card">
+                  <div class="apc-img" onclick="openEditProduct('${p.id}')">
+                    ${p.imageUrl
+                      ? `<img src="${p.imageUrl}" alt="${p.name}">`
+                      : `<span class="apc-emoji">${p.emoji || '🍺'}</span>`
+                    }
+                    <span class="apc-status ${p.available !== false ? 'apc-avail' : 'apc-unavail'}">
+                      ${p.available !== false ? 'متاح' : 'غير متاح'}
+                    </span>
+                  </div>
+                  <div class="apc-body">
+                    <div class="apc-name">${p.name}</div>
+                    <div class="apc-price">${formatPrice(p.price)}</div>
+                  </div>
+                  <div class="apc-actions">
+                    <button class="apc-btn apc-toggle" title="تغيير الحالة" onclick="toggleAvailability('${p.id}', ${p.available !== false})">
+                      ${p.available !== false ? '🟢' : '🔴'}
+                    </button>
+                    <button class="apc-btn apc-edit" title="تعديل" onclick="openEditProduct('${p.id}')">
+                      <i class="fas fa-pen"></i>
+                    </button>
+                    <button class="apc-btn apc-del" title="حذف" onclick="handleDeleteProduct('${p.id}', '${p.name}')">
+                      <i class="fas fa-trash"></i>
+                    </button>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    content.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <h2 style="font-family:var(--font-display);color:var(--gold-light);">المنتجات</h2>
+        <button class="btn btn-primary btn-sm" onclick="openModal('addProductModal')">
+          <i class="fas fa-plus"></i> منتج جديد
+        </button>
+      </div>
+      <div style="position:relative;margin-bottom:20px;">
+        <i class="fas fa-search" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--text-muted);pointer-events:none;"></i>
+        <input type="text" id="adminProductSearch" placeholder="ابحث عن منتج..." 
+          style="width:100%;padding:10px 40px 10px 14px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--bg-card);font-family:var(--font-body);font-size:0.9rem;color:var(--text-primary);direction:rtl;"
+          oninput="filterAdminProducts(this.value)">
+      </div>
+      <div id="adminProductsContainer">
+        ${buildProductsHTML(products)}
+        ${products.length === 0 ? '<div style="text-align:center;padding:40px;color:var(--text-muted);">لا توجد منتجات بعد</div>' : ''}
+      </div>
+    `;
+
+    window._allProducts = products;
+    window.filterAdminProducts = function(q) {
+      const term = q.trim().toLowerCase();
+      const filtered = term ? window._allProducts.filter(p =>
+        p.name.toLowerCase().includes(term) ||
+        (p.description || '').toLowerCase().includes(term)
+      ) : window._allProducts;
+      document.getElementById('adminProductsContainer').innerHTML =
+        buildProductsHTML(filtered) ||
+        '<div style="text-align:center;padding:40px;color:var(--text-muted);">لا توجد نتائج</div>';
+    };
+  }
+
+  window.toggleAvailability = async function(id, current) {
+    await updateProduct(id, { available: !current });
+    showToast('تم التحديث', 'success');
+    await renderPage('products');
+  };
+
+  window.handleDeleteProduct = async function(id, name) {
+    if (!confirm(`هل تريد حذف "${name}"؟`)) return;
+    await deleteProduct(id);
+    showToast(`تم حذف ${name}`, 'success');
+    await renderPage('products');
+  };
+
+  document.getElementById('addProductForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('addProductBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الإضافة...';
+    try {
+      const imageUrl = document.getElementById('apImageUrl').value || '';
+      await addProduct({
+        name:       document.getElementById('apName').value,
+        categoryId: document.getElementById('apCategory').value,
+        price:      document.getElementById('apPrice').value,
+        description:document.getElementById('apDesc').value,
+        emoji:      document.getElementById('apEmoji').value || '🍺',
+        imageUrl,
+        available:  document.getElementById('apAvailable').checked
+      });
+      showToast('تم إضافة المنتج ✅', 'success');
+      closeModal('addProductModal');
+      document.getElementById('addProductForm').reset();
+      document.getElementById('apImageUrl').value = '';
+      document.getElementById('imgPreview').style.display = 'none';
+      document.getElementById('imgPlaceholder').style.display = 'block';
+      document.getElementById('imgUploadArea').style.borderColor = '';
+      await renderPage('products');
+    } catch { showToast('حدث خطأ', 'error'); }
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-plus"></i> إضافة المنتج';
+  });
+
+  // ─────────────────────────────────────
+  // CATEGORIES PAGE
+  // ─────────────────────────────────────
+  async function renderCategoriesPage(content) {
+    categories = await fetchCategories();
+    content.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+        <h2 style="font-family:var(--font-display);color:var(--gold-light);">الفئات</h2>
+        <button class="btn btn-primary btn-sm" onclick="openModal('addCategoryModal')">
+          <i class="fas fa-plus"></i> فئة جديدة
+        </button>
+      </div>
+      <div class="section-card">
+        <div class="section-card-body">
+          ${categories.map((c, i) => `
+            <div class="admin-product-item">
+  <div class="item-icon" style="font-size:1.5rem;">${c.icon}</div>
+  <div class="item-info">
+    <div class="item-name">${c.name}</div>
+    <div class="item-meta">الترتيب: ${c.order || i+1}</div>
+  </div>
+  <div style="display:flex;gap:6px;">
+    <button class="btn btn-ghost btn-sm"
+      data-cid="${c.id}"
+      onclick="openEditCategory(this.dataset.cid)">
+      <i class="fas fa-pen"></i>
+    </button>
+  </div>
+</div>
+          `).join('')}
+          ${categories.length === 0 ? '<div style="text-align:center;padding:30px;color:var(--text-muted);">لا توجد فئات</div>' : ''}
+        </div>
+      </div>
+    `;
+  }
+
+  document.getElementById('addCategoryForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try {
+      await addCategory({
+        name:  document.getElementById('acName').value,
+        icon:  document.getElementById('acIcon').value || '🍺',
+        order: (categories.length + 1)
+      });
+      showToast('تم إضافة الفئة', 'success');
+      closeModal('addCategoryModal');
+      document.getElementById('addCategoryForm').reset();
+      await renderPage('categories');
+    } catch { showToast('حدث خطأ', 'error'); }
+  });
+
+  // ─────────────────────────────────────
+  // STATS PAGE
+  // ─────────────────────────────────────
+  async function renderStatsPage(content) {
+    const [allOrders, allProducts] = await Promise.all([fetchAllOrders(), fetchProducts()]);
+    const revenue  = allOrders.filter(o => o.status === 'مكتمل').reduce((s, o) => s + (o.total || 0), 0);
+    const newOrders = allOrders.filter(o => o.status === 'جديد').length;
+    const completedOrders = allOrders.filter(o => o.status === 'مكتمل').length;
+
+    content.innerHTML = `
+      <h2 style="font-family:var(--font-display);color:var(--gold-light);margin-bottom:20px;">الإحصائيات</h2>
+      <div class="stats-grid">
+        <div class="stat-card gold">
+          <div class="stat-icon gold"><i class="fas fa-money-bill-wave"></i></div>
+          <div class="stat-value" style="font-size:1.2rem;">${formatPrice(revenue)}</div>
+          <div class="stat-label">إجمالي الإيرادات</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon blue"><i class="fas fa-receipt"></i></div>
+          <div class="stat-value">${allOrders.length}</div>
+          <div class="stat-label">إجمالي الطلبات</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon green"><i class="fas fa-check-circle"></i></div>
+          <div class="stat-value">${completedOrders}</div>
+          <div class="stat-label">طلبات مكتملة</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon red"><i class="fas fa-clock"></i></div>
+          <div class="stat-value">${newOrders}</div>
+          <div class="stat-label">طلبات جديدة</div>
+        </div>
+      </div>
+      <div class="section-card">
+        <div class="section-card-header">
+          <div class="section-card-title"><i class="fas fa-box-open"></i> إجمالي المنتجات</div>
+          <span class="badge badge-gold">${allProducts.length}</span>
+        </div>
+        <div class="section-card-body">
+          <div style="display:flex;gap:20px;flex-wrap:wrap;">
+            <div style="color:var(--text-secondary);font-size:0.88rem;">
+              ✅ متاح: <strong style="color:var(--text-primary);">${allProducts.filter(p => p.available !== false).length}</strong>
+            </div>
+            <div style="color:var(--text-secondary);font-size:0.88rem;">
+              ❌ غير متاح: <strong style="color:var(--text-primary);">${allProducts.filter(p => p.available === false).length}</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // ─────────────────────────────────────
+  // USERS PAGE (admin only)
+  // ─────────────────────────────────────
+  async function renderUsersPage(content) {
+    const { getDocs, collection } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
+    const snap = await getDocs(collection(db, 'users'));
+    const users = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    const roleColors = { admin: 'badge-gold', manager: 'badge-blue', customer: 'badge-gray' };
+    const roleLabels = { admin: '👑 مدير عام', manager: '🔧 مدير', customer: '🛒 عميل' };
+
+    content.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+        <h2 style="font-family:var(--font-display);color:var(--gold-light);">المستخدمون</h2>
+        <button class="btn btn-primary btn-sm" onclick="openAddUser()">
+          <i class="fas fa-user-plus"></i> إضافة مستخدم
+        </button>
+      </div>
+      <div class="section-card">
+        <div class="section-card-header">
+          <div class="section-card-title"><i class="fas fa-users"></i> جميع المستخدمين</div>
+          <span class="badge badge-gold">${users.length}</span>
+        </div>
+        <div class="section-card-body">
+          ${users.length === 0 ? '<div style="text-align:center;padding:30px;color:var(--text-muted);">لا يوجد مستخدمون</div>' : ''}
+          ${users.map(u => `
+            <div class="admin-product-item">
+              <div class="item-icon" style="font-size:1.4rem;background:var(--gold-pale);">
+                ${u.role === 'admin' ? '👑' : u.role === 'manager' ? '🔧' : '👤'}
+              </div>
+              <div class="item-info">
+                <div class="item-name">${u.name || '—'}</div>
+                <div class="item-meta" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                  <span>${u.email || '—'}</span>
+                  <span class="badge ${roleColors[u.role] || 'badge-gray'}">${roleLabels[u.role] || u.role}</span>
+                </div>
+              </div>
+              <div style="display:flex;gap:6px;">
+                <button class="btn btn-ghost btn-sm"
+                  data-uid="${u.id}"
+                  data-name="${(u.name||'').replace(/"/g,'&quot;')}"
+                  data-email="${(u.email||'').replace(/"/g,'&quot;')}"
+                  data-role="${u.role||'customer'}"
+                  onclick="openEditUser(this.dataset.uid,this.dataset.name,this.dataset.email,this.dataset.role)">
+                  <i class="fas fa-pen"></i>
+                </button>
+                <button class="btn btn-danger btn-sm"
+                  data-uid="${u.id}"
+                  data-name="${(u.name||'').replace(/"/g,'&quot;')}"
+                  onclick="handleDeleteUser(this.dataset.uid,this.dataset.name)">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  window.openAddUser = function() {
+    document.getElementById('umId').value = '';
+    document.getElementById('umName').value = '';
+    document.getElementById('umEmail').value = '';
+    document.getElementById('umPass').value = '';
+    document.getElementById('umRole').value = 'customer';
+    document.getElementById('userModalTitle').innerHTML = '<i class="fas fa-user-plus"></i> إضافة مستخدم';
+    document.getElementById('umEmailGroup').style.display = '';
+    document.getElementById('umPassGroup').style.display = '';
+    openModal('userModal');
+  };
+
+  window.openEditUser = function(id, name, email, role) {
+    document.getElementById('umId').value = id;
+    document.getElementById('umName').value = name;
+    document.getElementById('umEmail').value = email;
+    document.getElementById('umPass').value = '';
+    document.getElementById('umRole').value = role;
+    document.getElementById('userModalTitle').innerHTML = '<i class="fas fa-user-edit"></i> تعديل المستخدم';
+    document.getElementById('umEmailGroup').style.display = 'none';
+    document.getElementById('umPassGroup').style.display = 'none';
+    openModal('userModal');
+  };
+
+  document.getElementById('userForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('userSubmitBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الحفظ...';
+    const id   = document.getElementById('umId').value;
+    const name = document.getElementById('umName').value;
+    const role = document.getElementById('umRole').value;
+    try {
+      const { setDoc, updateDoc, doc } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
+      if (id) {
+        // Edit existing — update Firestore only
+        await updateDoc(doc(db, 'users', id), { name, role });
+        showToast('✅ تم تحديث المستخدم', 'success');
+      } else {
+        // Add new — create via Admin API is needed for Auth
+        // We just create Firestore record; email/pass handled separately
+        const email = document.getElementById('umEmail').value;
+        // Create a placeholder doc with generated ID
+        const newId = 'manual_' + Date.now();
+        await setDoc(doc(db, 'users', newId), { name, email, role });
+        showToast('✅ تم إضافة المستخدم في قاعدة البيانات', 'success');
+        showToast('⚠️ أنشئ حساب Auth يدوياً من Firebase Console', 'info', 5000);
+      }
+      closeModal('userModal');
+      await renderPage('users');
+    } catch (err) {
+      showToast('حدث خطأ: ' + err.message, 'error');
+    }
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-save"></i> حفظ';
+  });
+
+  window.handleDeleteUser = async function(id, name) {
+    if (!confirm('هل تريد حذف "' + name + '"؟ (سيحذف من قاعدة البيانات فقط)')) return;
+    const { deleteDoc, doc } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
+    await deleteDoc(doc(db, 'users', id));
+    showToast('تم حذف ' + name, 'success');
+    await renderPage('users');
+  };
+
+  // ─────────────────────────────────────
+  // MY ORDERS PAGE
+  // ─────────────────────────────────────
+  async function renderMyOrdersPage(content) {
+    let myOrders = [];
+    try {
+      myOrders = await fetchMyOrders(currentProfile.uid);
+    } catch (err) {
+      console.error('fetchMyOrders error:', err);
+      // Firestore index missing — fallback: fetch all and filter client-side
+      try {
+        const all = await fetchAllOrders();
+        myOrders = all.filter(o => o.customerId === currentProfile.uid);
+      } catch (err2) {
+        content.innerHTML = `
+          <div style="text-align:center;padding:40px;color:var(--text-muted);">
+            <i class="fas fa-exclamation-triangle" style="font-size:2rem;color:var(--gold);display:block;margin-bottom:12px;"></i>
+            <p>تعذّر تحميل الطلبات. تأكد من الاتصال بالإنترنت.</p>
+            <button class="btn btn-primary" style="margin-top:16px;" onclick="navigateTo('my-orders')">
+              <i class="fas fa-redo"></i> إعادة المحاولة
+            </button>
+          </div>`;
+        return;
+      }
+    }
+    if (myOrders.length === 0) {
+      content.innerHTML = `
+        <div class="my-orders-empty">
+          <i class="fas fa-shopping-bag"></i>
+          <h3>لا توجد طلبات بعد</h3>
+          <p>ابدأ تسوقك الآن!</p>
+          <a href="../index.html" class="btn btn-primary" style="margin-top:16px;">
+            <i class="fas fa-store"></i> تصفح المتجر
+          </a>
+        </div>
+      `;
+      return;
+    }
+    content.innerHTML = `
+      <h2 style="font-family:var(--font-display);color:var(--gold-light);margin-bottom:20px;">طلباتي</h2>
+      ${myOrders.map(o => renderOrderCard(o)).join('')}
+    `;
+  }
+
+  // ─────────────────────────────────────
+  // PROFILE PAGE
+  // ─────────────────────────────────────
+  function renderProfilePage(content) {
+    content.innerHTML = `
+      <h2 style="font-family:var(--font-display);color:var(--gold-light);margin-bottom:20px;">حسابي</h2>
+      <div class="section-card">
+        <div class="section-card-body">
+          <div style="text-align:center;padding:20px 0;">
+            <div style="font-size:3.5rem;margin-bottom:12px;">👤</div>
+            <div style="font-family:var(--font-display);font-size:1.5rem;color:var(--gold-light);margin-bottom:4px;">
+              ${currentProfile.name}
+            </div>
+            <div style="color:var(--text-muted);font-size:0.88rem;margin-bottom:12px;">
+              ${currentProfile.email}
+            </div>
+            <span class="badge badge-gold">${getRoleLabel(currentProfile.role)}</span>
+          </div>
+          <div class="gold-divider"></div>
+          <button class="btn btn-danger btn-block" onclick="handleLogout()">
+            <i class="fas fa-sign-out-alt"></i>
+            تسجيل الخروج
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+
+  // ─────────────────────────────────────
+  // DELIVERY SETTINGS PAGE
+  // ─────────────────────────────────────
+  async function renderDeliveryPage(content) {
+    const s = await fetchDeliverySettings();
+    content.innerHTML = `
+      <div class="section-card">
+        <div class="section-card-header">
+          <div class="section-card-title"><i class="fas fa-motorcycle"></i> إعدادات التوصيل</div>
+        </div>
+        <div class="section-card-body">
+
+          <!-- Center Location -->
+          <div style="background:var(--gold-pale);border:1.5px solid var(--gold-border);border-radius:16px;padding:18px;margin-bottom:18px;">
+            <div style="font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px;font-size:0.95rem;">
+              <i class="fas fa-store" style="color:var(--gold);"></i> موقع مركز المتجر
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px;">
+              <div class="form-group" style="margin:0;">
+                <label class="form-label">خط العرض</label>
+                <input type="number" step="0.00001" class="form-input" id="dCenterLat"
+                  value="${s?.centerLat || 32.6136}">
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label class="form-label">خط الطول</label>
+                <input type="number" step="0.00001" class="form-input" id="dCenterLng"
+                  value="${s?.centerLng || 44.0092}">
+              </div>
+            </div>
+            <div style="font-size:0.78rem;color:var(--text-muted);display:flex;align-items:center;gap:6px;">
+              <i class="fas fa-lightbulb" style="color:var(--gold);"></i>
+              افتح Google Maps ← اضغط على موقع المتجر ← انسخ الإحداثيات
+            </div>
+          </div>
+
+          <!-- Price Per KM -->
+          <div style="background:var(--bg-elevated);border:1.5px solid var(--border);border-radius:16px;padding:18px;margin-bottom:18px;">
+            <div style="font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px;font-size:0.95rem;">
+              <i class="fas fa-route" style="color:var(--gold);"></i> سعر التوصيل
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+              <div class="form-group" style="margin:0;">
+                <label class="form-label">سعر الكيلومتر (د.ع)</label>
+                <input type="number" step="500" class="form-input" id="dPricePerKm"
+                  value="${s?.pricePerKm || 1000}" placeholder="1000">
+                <div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px;">لكل كيلومتر واحد</div>
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label class="form-label">الحد الأدنى (د.ع)</label>
+                <input type="number" step="500" class="form-input" id="dMinFee"
+                  value="${s?.minFee || 1000}" placeholder="1000">
+                <div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px;">أقل أجرة توصيل</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Preview Calculator -->
+          <div style="background:#f0faf5;border:1.5px solid rgba(45,106,79,0.2);border-radius:16px;padding:16px;margin-bottom:20px;">
+            <div style="font-weight:700;margin-bottom:12px;font-size:0.9rem;color:var(--green);">
+              <i class="fas fa-calculator"></i> حاسبة تجريبية
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+              <span style="font-size:0.88rem;color:var(--text-secondary);">إذا كان الزبون على بعد</span>
+              <input type="number" id="previewKm" value="3" min="1" max="50"
+                style="width:64px;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:var(--font-body);font-size:0.9rem;text-align:center;"
+                oninput="previewCalc()">
+              <span style="font-size:0.88rem;color:var(--text-secondary);">كيلومتر</span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;background:#fff;border-radius:10px;padding:10px 14px;">
+              <span style="font-size:0.88rem;color:var(--text-secondary);">أجرة التوصيل</span>
+              <span style="font-weight:800;color:var(--green);font-size:1rem;" id="previewResult">—</span>
+            </div>
+          </div>
+
+          <button onclick="saveDeliveryPage()" class="btn btn-primary btn-block">
+            <i class="fas fa-save"></i> حفظ الإعدادات
+          </button>
+        </div>
+      </div>
+    `;
+    previewCalc();
+  }
+
+  window.previewCalc = function() {
+    const km         = parseFloat(document.getElementById('previewKm')?.value) || 0;
+    const pricePerKm = parseFloat(document.getElementById('dPricePerKm')?.value) || 1000;
+    const minFee     = parseFloat(document.getElementById('dMinFee')?.value) || 1000;
+    const fee        = Math.max(Math.ceil(km) * pricePerKm, minFee);
+    const el = document.getElementById('previewResult');
+    if (el) el.textContent = formatPrice(fee);
+  };
+
+  window.saveDeliveryPage = async function() {
+    const centerLat  = parseFloat(document.getElementById('dCenterLat').value);
+    const centerLng  = parseFloat(document.getElementById('dCenterLng').value);
+    const pricePerKm = parseFloat(document.getElementById('dPricePerKm').value);
+    const minFee     = parseFloat(document.getElementById('dMinFee').value);
+    if (isNaN(centerLat) || isNaN(centerLng) || isNaN(pricePerKm)) {
+      showToast('الرجاء تعبئة جميع الحقول', 'warning'); return;
+    }
+    try {
+      await saveDeliverySettings({ centerLat, centerLng, pricePerKm, minFee: minFee || pricePerKm });
+      showToast('✅ تم حفظ إعدادات التوصيل', 'success');
+    } catch { showToast('حدث خطأ', 'error'); }
+  };
+
+
+  // ─────────────────────────────────────
+  // EDIT PRODUCT
+  // ─────────────────────────────────────
+  window.openEditProduct = async function(id) {
+    const p = products.find(x => x.id === id);
+    if (!p) return;
+    document.getElementById('epId').value         = id;
+    document.getElementById('epName').value       = p.name || '';
+    document.getElementById('epPrice').value      = p.price || '';
+    document.getElementById('epDesc').value       = p.description || '';
+    document.getElementById('epEmoji').value      = p.emoji || '🍺';
+    document.getElementById('epImageUrl').value = p.imageUrl || '';
+    document.getElementById('epAvailable').checked = p.available !== false;
+    // Fill categories
+    const cats = await fetchCategories();
+    document.getElementById('epCategory').innerHTML =
+      cats.map(c => `<option value="${c.id}" ${c.id===p.categoryId?'selected':''}>${c.icon} ${c.name}</option>`).join('');
+    openModal('editProductModal');
+  };
+
+  document.getElementById('editProductForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('editProductBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الحفظ...';
+    try {
+      const id = document.getElementById('epId').value;
+      await updateProduct(id, {
+        name:        document.getElementById('epName').value,
+        categoryId:  document.getElementById('epCategory').value,
+        price:       Number(document.getElementById('epPrice').value),
+        description: document.getElementById('epDesc').value,
+        emoji:       document.getElementById('epEmoji').value || '🍺',
+        imageUrl: document.getElementById('epImageUrl').value || '',
+        available:   document.getElementById('epAvailable').checked
+      });
+      showToast('✅ تم تحديث المنتج', 'success');
+      closeModal('editProductModal');
+      await renderPage('products');
+    } catch { showToast('حدث خطأ', 'error'); }
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-save"></i> حفظ التعديلات';
+  });
+
+  // ─────────────────────────────────────
+  // EDIT CATEGORY
+  // ─────────────────────────────────────
+  window.openEditCategory = function(id) {
+    const c = categories.find(x => x.id === id);
+    if (!c) return;
+    document.getElementById('ecId').value    = id;
+    document.getElementById('ecName').value  = c.name || '';
+    document.getElementById('ecIcon').value  = c.icon || '';
+    document.getElementById('ecOrder').value = c.order ?? '';
+    openModal('editCategoryModal');
+  };
+
+  document.getElementById('editCategoryForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('editCategoryBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الحفظ...';
+    try {
+      const { updateDoc, doc } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
+      const id = document.getElementById('ecId').value;
+      await updateDoc(doc(db, 'categories', id), {
+        name:  document.getElementById('ecName').value,
+        icon:  document.getElementById('ecIcon').value,
+        order: Number(document.getElementById('ecOrder').value) || 0
+      });
+      showToast('✅ تم تحديث الفئة', 'success');
+      closeModal('editCategoryModal');
+      await renderPage('categories');
+    } catch { showToast('حدث خطأ', 'error'); }
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-save"></i> حفظ التعديلات';
+  });
+
+  // ─────────────────────────────────────
+  // NOTIFICATIONS PAGE
+  // ─────────────────────────────────────
+  async function renderNotificationsPage(content) {
+    // Load saved settings from Firestore
+    const { getDoc, doc } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
+    let tgSettings = { botToken: '', chatId: '', enabled: false };
+    try {
+      const snap = await getDoc(doc(db, 'settings', 'telegram'));
+      if (snap.exists()) tgSettings = { ...tgSettings, ...snap.data() };
+    } catch {}
+
+    content.innerHTML = `
+      <!-- Header -->
+      <div style="margin-bottom:24px;">
+        <h2 style="font-family:var(--font-display);color:var(--gold-dark);font-size:1.4rem;margin-bottom:6px;">
+          <i class="fas fa-bell" style="color:var(--gold);margin-left:8px;"></i>إعدادات الإشعارات
+        </h2>
+        <p style="color:var(--text-muted);font-size:0.88rem;">
+          استلم إشعار فوري على تيليغرام عند كل طلب جديد مع كامل التفاصيل
+        </p>
+      </div>
+
+      <!-- Status Banner -->
+      <div id="tgStatusBanner" style="
+        display:flex;align-items:center;gap:12px;
+        padding:14px 18px;border-radius:16px;margin-bottom:22px;
+        background:${tgSettings.enabled ? '#f0faf5' : '#fdf8f0'};
+        border:1.5px solid ${tgSettings.enabled ? 'rgba(45,106,79,0.25)' : 'rgba(184,146,42,0.25)'};
+      ">
+        <div style="
+          width:40px;height:40px;border-radius:50%;flex-shrink:0;
+          background:${tgSettings.enabled ? 'rgba(45,106,79,0.12)' : 'rgba(184,146,42,0.12)'};
+          display:flex;align-items:center;justify-content:center;font-size:1.2rem;
+        ">${tgSettings.enabled ? '🟢' : '🔴'}</div>
+        <div>
+          <div style="font-weight:700;font-size:0.92rem;color:var(--text-primary);">
+            ${tgSettings.enabled ? 'الإشعارات مفعّلة' : 'الإشعارات معطّلة'}
+          </div>
+          <div style="font-size:0.78rem;color:var(--text-muted);margin-top:2px;">
+            ${tgSettings.enabled ? 'ستصلك رسالة تيليغرام عند كل طلب جديد' : 'أضف بيانات البوت لتفعيل الإشعارات'}
+          </div>
+        </div>
+        <label style="margin-right:auto;display:flex;align-items:center;gap:8px;cursor:pointer;">
+          <div class="toggle-switch ${tgSettings.enabled ? 'on' : ''}" id="tgToggle" onclick="toggleTgEnabled()"></div>
+        </label>
+      </div>
+
+      <!-- How to setup guide -->
+      <div class="section-card" style="margin-bottom:20px;">
+        <div class="section-card-header">
+          <div class="section-card-title">
+            <i class="fab fa-telegram" style="color:#229ED9;"></i>
+            كيفية إعداد بوت تيليغرام
+          </div>
+          <button onclick="document.getElementById('setupGuide').classList.toggle('hidden')"
+            class="btn btn-ghost btn-sm">
+            <i class="fas fa-chevron-down"></i>
+          </button>
+        </div>
+        <div class="section-card-body hidden" id="setupGuide">
+          <div style="display:flex;flex-direction:column;gap:14px;">
+            <div style="display:flex;gap:14px;align-items:flex-start;">
+              <div style="width:32px;height:32px;border-radius:50%;background:var(--gold-pale);border:2px solid var(--gold-border);display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--gold-dark);flex-shrink:0;font-size:0.85rem;">1</div>
+              <div>
+                <div style="font-weight:700;font-size:0.9rem;margin-bottom:3px;">افتح تيليغرام وابحث عن BotFather</div>
+                <div style="font-size:0.8rem;color:var(--text-muted);">ابحث في تيليغرام عن <strong>@BotFather</strong> وابدأ محادثة معه</div>
+              </div>
+            </div>
+            <div style="display:flex;gap:14px;align-items:flex-start;">
+              <div style="width:32px;height:32px;border-radius:50%;background:var(--gold-pale);border:2px solid var(--gold-border);display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--gold-dark);flex-shrink:0;font-size:0.85rem;">2</div>
+              <div>
+                <div style="font-weight:700;font-size:0.9rem;margin-bottom:3px;">أنشئ بوت جديد</div>
+                <div style="font-size:0.8rem;color:var(--text-muted);">أرسل <code style="background:var(--bg-elevated);padding:2px 6px;border-radius:4px;">/newbot</code> ثم اتبع التعليمات. ستحصل على <strong>Bot Token</strong></div>
+              </div>
+            </div>
+            <div style="display:flex;gap:14px;align-items:flex-start;">
+              <div style="width:32px;height:32px;border-radius:50%;background:var(--gold-pale);border:2px solid var(--gold-border);display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--gold-dark);flex-shrink:0;font-size:0.85rem;">3</div>
+              <div>
+                <div style="font-weight:700;font-size:0.9rem;margin-bottom:3px;">احصل على Chat ID</div>
+                <div style="font-size:0.8rem;color:var(--text-muted);">ابحث عن <strong>@userinfobot</strong> وأرسل له أي رسالة — سيعطيك الـ Chat ID الخاص بك</div>
+              </div>
+            </div>
+            <div style="display:flex;gap:14px;align-items:flex-start;">
+              <div style="width:32px;height:32px;border-radius:50%;background:var(--gold-pale);border:2px solid var(--gold-border);display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--gold-dark);flex-shrink:0;font-size:0.85rem;">4</div>
+              <div>
+                <div style="font-weight:700;font-size:0.9rem;margin-bottom:3px;">أدخل البيانات وجرّب الإرسال</div>
+                <div style="font-size:0.8rem;color:var(--text-muted);">أدخل الـ Token والـ Chat ID أدناه واضغط "إرسال رسالة تجريبية"</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- API Settings Form -->
+      <div class="section-card" style="margin-bottom:20px;">
+        <div class="section-card-header">
+          <div class="section-card-title">
+            <i class="fas fa-key"></i> بيانات البوت
+          </div>
+        </div>
+        <div class="section-card-body">
+          <div class="form-group">
+            <label class="form-label">Bot Token <span style="color:var(--gold);">*</span></label>
+            <div style="position:relative;">
+              <input type="${tgSettings.botToken ? 'password' : 'text'}" class="form-input" id="tgBotToken"
+                placeholder="123456789:AABBccDDeeFFggHH..." 
+                value="${tgSettings.botToken || ''}"
+                style="padding-left:44px;font-family:monospace;font-size:0.85rem;">
+              <button onclick="toggleTokenVisibility()" style="
+                position:absolute;left:10px;top:50%;transform:translateY(-50%);
+                background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:0.9rem;
+              " id="tokenEyeBtn"><i class="fas fa-eye"></i></button>
+            </div>
+            <div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px;">
+              يبدأ بأرقام ثم نقطتان مثل: <code>110201543:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw</code>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Chat ID <span style="color:var(--gold);">*</span></label>
+            <input type="text" class="form-input" id="tgChatId"
+              placeholder="مثال: 123456789 أو -1001234567890"
+              value="${tgSettings.chatId || ''}"
+              style="font-family:monospace;font-size:0.88rem;">
+            <div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px;">
+              للمجموعات: Chat ID يبدأ بـ <code>-100</code> | للأشخاص: أرقام فقط
+            </div>
+          </div>
+
+          <!-- Message Preview -->
+          <div style="background:var(--bg-elevated);border:1.5px solid var(--border);border-radius:14px;padding:14px;margin-bottom:18px;">
+            <div style="font-size:0.78rem;font-weight:700;color:var(--text-muted);margin-bottom:8px;letter-spacing:0.5px;">
+              📱 معاينة الرسالة التي ستصلك
+            </div>
+            <div style="background:#fff;border-radius:10px;padding:12px;font-size:0.8rem;line-height:1.8;color:#1a1612;direction:rtl;border:1px solid rgba(0,0,0,0.06);font-family:monospace;">
+🥃 <strong>طلب جديد — Irish Bar</strong><br>
+━━━━━━━━━━━━━━━━━━<br>
+🆔 رقم الطلب: <span style="color:#229ED9;">#A1B2C3</span><br>
+👤 العميل: أحمد محمد<br>
+📞 الهاتف: 07801234567<br>
+🕐 وقت التوصيل: أسرع وقت<br>
+📍 الموقع: كربلاء — شارع الإمام علي<br>
+━━━━━━━━━━━━━━━━━━<br>
+🛒 <strong>المنتجات:</strong><br>
+&nbsp;&nbsp;• جيمسون × 2 ← 110,000 د.ع<br>
+&nbsp;&nbsp;• غينيس × 1 ← 12,000 د.ع<br>
+━━━━━━━━━━━━━━━━━━<br>
+🚚 أجرة التوصيل: 3,000 د.ع<br>
+💰 <strong>الإجمالي: 125,000 د.ع</strong><br>
+━━━━━━━━━━━━━━━━━━<br>
+📌 <a href="#">عرض الموقع على الخارطة</a>
+            </div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button onclick="saveTelegramSettings()" class="btn btn-primary" style="flex:1;min-width:140px;">
+              <i class="fas fa-save"></i> حفظ الإعدادات
+            </button>
+            <button onclick="sendTestMessage()" class="btn btn-secondary" style="flex:1;min-width:140px;" id="testMsgBtn">
+              <i class="fab fa-telegram"></i> رسالة تجريبية
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Notification Triggers -->
+      <div class="section-card" style="margin-bottom:20px;">
+        <div class="section-card-header">
+          <div class="section-card-title"><i class="fas fa-sliders-h"></i> متى تصلك الإشعارات</div>
+        </div>
+        <div class="section-card-body">
+          ${[
+            { id: 'notif_new_order',    label: 'طلب جديد',           desc: 'عند إنشاء طلب جديد',              icon: '🆕', default: true },
+            { id: 'notif_completed',    label: 'طلب مكتمل',          desc: 'عند تغيير حالة الطلب إلى مكتمل',  icon: '✅', default: false },
+            { id: 'notif_cancelled',    label: 'طلب ملغي',           desc: 'عند إلغاء طلب',                   icon: '❌', default: false },
+          ].map(t => `
+            <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border-light);">
+              <div style="font-size:1.3rem;">${t.icon}</div>
+              <div style="flex:1;">
+                <div style="font-weight:700;font-size:0.9rem;">${t.label}</div>
+                <div style="font-size:0.75rem;color:var(--text-muted);">${t.desc}</div>
+              </div>
+              <div class="toggle-switch ${(tgSettings[t.id] ?? t.default) ? 'on' : ''}"
+                   onclick="this.classList.toggle('on')" data-key="${t.id}"></div>
+            </div>
+          `).join('')}
+          <div style="border-bottom:none;padding-top:12px;">
+            <button onclick="saveTriggers()" class="btn btn-ghost btn-sm">
+              <i class="fas fa-save"></i> حفظ التفضيلات
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // ── Toggle switch handler ──
+  window.toggleTgEnabled = function() {
+    const el = document.getElementById('tgToggle');
+    el.classList.toggle('on');
+    const isOn = el.classList.contains('on');
+    const banner = document.getElementById('tgStatusBanner');
+    banner.style.background = isOn ? '#f0faf5' : '#fdf8f0';
+    banner.style.borderColor = isOn ? 'rgba(45,106,79,0.25)' : 'rgba(184,146,42,0.25)';
+  };
+
+  window.toggleTokenVisibility = function() {
+    const inp = document.getElementById('tgBotToken');
+    const ico = document.getElementById('tokenEyeBtn').querySelector('i');
+    if (inp.type === 'password') { inp.type = 'text'; ico.className = 'fas fa-eye-slash'; }
+    else { inp.type = 'password'; ico.className = 'fas fa-eye'; }
+  };
+
+  window.saveTelegramSettings = async function() {
+    const botToken = document.getElementById('tgBotToken').value.trim();
+    const chatId   = document.getElementById('tgChatId').value.trim();
+    const enabled  = document.getElementById('tgToggle').classList.contains('on');
+    if (!botToken || !chatId) { showToast('الرجاء إدخال Token و Chat ID', 'warning'); return; }
+    try {
+      const { setDoc, doc } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
+      await setDoc(doc(db, 'settings', 'telegram'), { botToken, chatId, enabled });
+      showToast('✅ تم حفظ إعدادات تيليغرام', 'success');
+    } catch { showToast('حدث خطأ أثناء الحفظ', 'error'); }
+  };
+
+  window.saveTriggers = async function() {
+    const triggers = {};
+    document.querySelectorAll('.toggle-switch[data-key]').forEach(el => {
+      triggers[el.dataset.key] = el.classList.contains('on');
+    });
+    try {
+      const { setDoc, doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
+      const snap = await getDoc(doc(db, 'settings', 'telegram'));
+      const existing = snap.exists() ? snap.data() : {};
+      await setDoc(doc(db, 'settings', 'telegram'), { ...existing, ...triggers });
+      showToast('✅ تم حفظ التفضيلات', 'success');
+    } catch { showToast('حدث خطأ', 'error'); }
+  };
+
+  window.sendTestMessage = async function() {
+    const botToken = document.getElementById('tgBotToken').value.trim();
+    const chatId   = document.getElementById('tgChatId').value.trim();
+    if (!botToken || !chatId) { showToast('أدخل Token و Chat ID أولاً', 'warning'); return; }
+    const btn = document.getElementById('testMsgBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الإرسال...';
+    try {
+      const msg = `🥃 *Irish Bar — رسالة تجريبية*\n━━━━━━━━━━━━━━\n✅ تم الاتصال بنجاح!\nالإشعارات تعمل بشكل صحيح.\n━━━━━━━━━━━━━━\n_تم الإرسال من لوحة التحكم_`;
+      const res = await fetch(
+        'https://api.telegram.org/bot' + botToken + '/sendMessage',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat_id: chatId, text: msg, parse_mode: 'Markdown' })
+        }
+      );
+      const data = await res.json();
+      if (data.ok) {
+        showToast('✅ تم إرسال الرسالة التجريبية بنجاح!', 'success');
+      } else {
+        showToast('❌ خطأ: ' + (data.description || 'تحقق من البيانات'), 'error');
+      }
+    } catch (e) {
+      showToast('❌ فشل الاتصال بتيليغرام', 'error');
+    }
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fab fa-telegram"></i> رسالة تجريبية';
+  };
+
+  // ── Logout ──
+  window.handleLogout = async function() {
+    await logout();
+    window.location.href = 'auth.html';
+  };
+
+  // ── Sidebar Controls ──
+  window.toggleSidebar = function() {
+    document.getElementById('sidebar').classList.toggle('open');
+    document.getElementById('sidebarOverlay').classList.toggle('show');
+  };
+  window.closeSidebar = function() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebarOverlay').classList.remove('show');
+  };
+
+</script>
+</body>
+</html>
