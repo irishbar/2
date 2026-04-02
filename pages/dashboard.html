@@ -1313,8 +1313,8 @@
         const email    = document.getElementById('umEmail').value.trim();
         const password = document.getElementById('umPass').value;
         if (!email || !password) { showToast('البريد وكلمة المرور مطلوبان', 'warning'); btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> حفظ'; return; }
-        const { initializeApp, getApps } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js");
-        const { getAuth: getSecondaryAuth, createUserWithEmailAndPassword, signOut: secondarySignOut } =
+        const { initializeApp, deleteApp } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js");
+        const { getAuth: getSecondaryAuth, createUserWithEmailAndPassword } =
           await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js");
         // استخدم تطبيق ثانوي حتى لا يؤثر على جلسة الأدمن
         const secondaryApp = initializeApp(
@@ -1322,26 +1322,40 @@
           'secondary-' + Date.now()
         );
         const secondaryAuth = getSecondaryAuth(secondaryApp);
-        const cred = await createUserWithEmailAndPassword(secondaryAuth, email, password);
-        const newUid = cred.user.uid;
-        // اكتب في Firestore أولاً (كأدمن) قبل إغلاق التطبيق الثانوي
-        await setDoc(doc(db, 'users', newUid), { name, email, role, createdAt: new Date().toISOString() });
-        // أغلق التطبيق الثانوي بعد اكتمال الكتابة (fire and forget)
-        secondarySignOut(secondaryAuth).catch(() => {});
-
-        // إذا كان السائق: أنشئ سجل driver في Firestore تلقائياً
-        if (role === 'driver') {
-          const { addDoc, collection: col2 } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
-          const agentId = document.getElementById('umDriverAgentId')?.value || null;
-          await addDoc(col2(db, 'drivers'), {
-            userId:   newUid,
-            agentId:  agentId || null,
-            name,
-            phone:    '',
-            balance:  0,
-            active:   true,
-            createdAt: new Date().toISOString()
-          });
+        let newUser = null;
+        try {
+          const cred = await createUserWithEmailAndPassword(secondaryAuth, email, password);
+          newUser = cred.user;
+          const newUid = newUser.uid;
+          // اكتب الـ doc باستخدام Firestore المرتبط بالتطبيق الثانوي (المستخدم الجديد يكتب doc نفسه)
+          // هذا يتجاوز مشكلة الصلاحيات لأن request.auth.uid == userId
+          const { getFirestore: getSecondaryFirestore, doc: docFn, setDoc: setDocFn } =
+            await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
+          const secondaryDb = getSecondaryFirestore(secondaryApp);
+          await setDocFn(docFn(secondaryDb, 'users', newUid), { name, email, role, createdAt: new Date().toISOString() });
+          // إذا كان السائق: أنشئ سجل driver في Firestore تلقائياً
+          if (role === 'driver') {
+            const { addDoc, collection: col2 } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
+            const agentId = document.getElementById('umDriverAgentId')?.value || null;
+            await addDoc(col2(db, 'drivers'), {
+              userId:   newUid,
+              agentId:  agentId || null,
+              name,
+              phone:    '',
+              balance:  0,
+              active:   true,
+              createdAt: new Date().toISOString()
+            });
+          }
+        } catch (innerErr) {
+          // إذا فشلت الكتابة في Firestore بعد إنشاء الحساب → احذف حساب Auth لتجنب الحسابات اليتيمة
+          if (newUser) {
+            try { await newUser.delete(); } catch {}
+          }
+          throw innerErr;
+        } finally {
+          // احذف التطبيق الثانوي دائماً بعد الانتهاء
+          deleteApp(secondaryApp).catch(() => {});
         }
         showToast('✅ تم إنشاء الحساب بنجاح', 'success');
       }
