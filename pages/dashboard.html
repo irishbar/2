@@ -2567,27 +2567,26 @@
             </div>
 
             <!-- أزرار الإجراءات -->
-           <div style="display:flex;gap:8px;">
-  <button onclick="openEditAgent('${a.id}')"
-    class="btn btn-ghost btn-sm" style="flex:1;font-size:0.8rem;">
-    <i class="fas fa-edit" style="color:var(--gold-dark);"></i> تعديل
-  </button>
-  <button onclick="toggleAgentStatus('${a.id}',${isActive})"
-    class="btn btn-ghost btn-sm" style="flex:1;font-size:0.8rem;">
-    <i class="fas fa-${isActive?'pause-circle':'play-circle'}"
-      style="color:${isActive?'#e67e22':'var(--green)'};">
-    </i> ${isActive ? 'إيقاف' : 'تفعيل'}
-  </button>
-  <button onclick="openTopupAgentModal('${a.id}','${(a.name||'').replace(/'/g,"\\'")}',${a.balance||0})"
-    class="btn btn-ghost btn-sm" style="color:var(--green);" title="تعزيز رصيد">
-    <i class="fas fa-wallet"></i>
-  </button>
-
-  <button onclick="deleteAgentConfirm('${a.id}','${(a.name||'').replace(/'/g,"\\'")}')"
-    class="btn btn-ghost btn-sm" style="color:#c0392b;" title="حذف">
-    <i class="fas fa-trash"></i>
-  </button>
-</div>
+            <div style="display:flex;gap:8px;">
+              <button onclick="openEditAgent('${a.id}')"
+                class="btn btn-ghost btn-sm" style="flex:1;font-size:0.8rem;">
+                <i class="fas fa-edit" style="color:var(--gold-dark);"></i> تعديل
+              </button>
+              <button onclick="toggleAgentStatus('${a.id}',${isActive})"
+                class="btn btn-ghost btn-sm" style="flex:1;font-size:0.8rem;">
+                <i class="fas fa-${isActive?'pause-circle':'play-circle'}"
+                  style="color:${isActive?'#e67e22':'var(--green)'};">
+                </i> ${isActive ? 'إيقاف' : 'تفعيل'}
+              </button>
+              <button onclick="openTopupAgentModal('${a.id}','${(a.name||'').replace(/'/g,"\\'")}',${a.balance||0})"
+                class="btn btn-ghost btn-sm" style="color:var(--green);" title="تعزيز رصيد">
+                <i class="fas fa-wallet"></i>
+              </button>
+              <button onclick="deleteAgentConfirm('${a.id}','${(a.name||'').replace(/'/g,"\\'")}')"
+                class="btn btn-ghost btn-sm" style="color:#c0392b;" title="حذف">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
           </div>`;
       }).join('');
     }
