@@ -421,6 +421,40 @@
   </div>
 </div>
 
+<!-- ── Add Agent Modal ── -->
+<div class="modal-overlay" id="addAgentModal">
+  <div class="modal-box" style="max-width:480px;max-height:90vh;overflow-y:auto;">
+    <div class="modal-header">
+      <div class="modal-title"><i class="fas fa-user-plus"></i> إضافة وكيل جديد</div>
+      <button class="modal-close" onclick="closeModal('addAgentModal')">✕</button>
+    </div>
+    <div class="modal-body" id="addAgentBody"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('addAgentModal')">إلغاء</button>
+      <button class="btn btn-primary" id="addAgentBtn" onclick="submitAddAgent()">
+        <i class="fas fa-plus"></i> إضافة
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Edit Agent Modal ── -->
+<div class="modal-overlay" id="editAgentModal">
+  <div class="modal-box" style="max-width:480px;max-height:90vh;overflow-y:auto;">
+    <div class="modal-header">
+      <div class="modal-title"><i class="fas fa-user-edit"></i> تعديل بيانات الوكيل</div>
+      <button class="modal-close" onclick="closeModal('editAgentModal')">✕</button>
+    </div>
+    <div class="modal-body" id="editAgentBody"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('editAgentModal')">إلغاء</button>
+      <button class="btn btn-primary" id="saveEditAgentBtn" onclick="submitEditAgent()">
+        <i class="fas fa-save"></i> حفظ
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- ── Assign Agent Modal ── -->
 <div class="modal-overlay" id="assignAgentModal">
   <div class="modal-box" style="max-width:400px;">
@@ -2618,48 +2652,11 @@
         </div>
         <div class="section-card-body">${renderTable(agents)}</div>
       </div>
-
-      <!-- Add Agent Modal -->
-      <div id="addAgentModal" class="modal-overlay" style="display:none;">
-        <div class="modal-box" style="max-width:480px;max-height:90vh;overflow-y:auto;">
-          <div class="modal-header">
-            <div class="modal-title"><i class="fas fa-user-plus"></i> إضافة وكيل جديد</div>
-            <button class="modal-close" onclick="document.getElementById('addAgentModal').style.display='none'">✕</button>
-          </div>
-          <div class="modal-body">
-            ${agentFormFields('ag')}
-          </div>
-          <div class="modal-footer">
-            <button class="btn btn-ghost" onclick="document.getElementById('addAgentModal').style.display='none'">إلغاء</button>
-            <button class="btn btn-primary" id="addAgentBtn" onclick="submitAddAgent()">
-              <i class="fas fa-plus"></i> إضافة
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Edit Agent Modal -->
-      <div id="editAgentModal" class="modal-overlay" style="display:none;">
-        <div class="modal-box" style="max-width:480px;max-height:90vh;overflow-y:auto;">
-          <div class="modal-header">
-            <div class="modal-title"><i class="fas fa-user-edit"></i> تعديل بيانات الوكيل</div>
-            <button class="modal-close" onclick="document.getElementById('editAgentModal').style.display='none'">✕</button>
-          </div>
-          <div class="modal-body" id="editAgentBody">
-            <input type="hidden" id="editAgentId">
-          </div>
-          <div class="modal-footer">
-            <button class="btn btn-ghost" onclick="document.getElementById('editAgentModal').style.display='none'">إلغاء</button>
-            <button class="btn btn-primary" id="saveEditAgentBtn" onclick="submitEditAgent()">
-              <i class="fas fa-save"></i> حفظ
-            </button>
-          </div>
-        </div>
-      </div>
     `;
 
     window.openAddAgentModal = function() {
-      document.getElementById('addAgentModal').style.display = 'flex';
+      document.getElementById('addAgentBody').innerHTML = agentFormFields('ag');
+      openModal('addAgentModal');
     };
 
     window.submitAddAgent = async function() {
@@ -2695,7 +2692,7 @@
           await setDoc(doc(db, 'users', linkedUserId), { role: 'agent' }, { merge: true });
         }
         await addDoc(collection(db, 'agents'), agentData);
-        document.getElementById('addAgentModal').style.display = 'none';
+        closeModal('addAgentModal');
         showToast('✅ تم إضافة الوكيل', 'success');
         await renderAgentsPage(content);
       } catch (e) { showToast('حدث خطأ: ' + e.message, 'error'); }
@@ -2706,11 +2703,10 @@
     window.openEditAgent = function(id) {
       const a = agents.find(x => x.id === id);
       if (!a) return;
-      // رسم الحقول ديناميكياً بقيم الوكيل الحالية
       document.getElementById('editAgentBody').innerHTML =
         `<input type="hidden" id="editAgentId" value="${id}">` +
         agentFormFields('editAg', a);
-      document.getElementById('editAgentModal').style.display = 'flex';
+      openModal('editAgentModal');
     };
 
     window.submitEditAgent = async function() {
@@ -2753,7 +2749,7 @@
           }
         }
         await updateDoc(doc(db, 'agents', id), data);
-        document.getElementById('editAgentModal').style.display = 'none';
+        closeModal('editAgentModal');
         showToast('✅ تم تحديث الوكيل', 'success');
         await renderAgentsPage(content);
       } catch (e) { showToast('حدث خطأ: ' + e.message, 'error'); }
