@@ -1324,8 +1324,10 @@
         const secondaryAuth = getSecondaryAuth(secondaryApp);
         const cred = await createUserWithEmailAndPassword(secondaryAuth, email, password);
         const newUid = cred.user.uid;
-        await secondarySignOut(secondaryAuth);
+        // اكتب في Firestore أولاً (كأدمن) قبل إغلاق التطبيق الثانوي
         await setDoc(doc(db, 'users', newUid), { name, email, role, createdAt: new Date().toISOString() });
+        // أغلق التطبيق الثانوي بعد اكتمال الكتابة (fire and forget)
+        secondarySignOut(secondaryAuth).catch(() => {});
 
         // إذا كان السائق: أنشئ سجل driver في Firestore تلقائياً
         if (role === 'driver') {
