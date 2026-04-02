@@ -35,7 +35,7 @@ service cloud.firestore {
     // Admin reads/writes all. User reads/updates own profile only.
     match /users/{userId} {
       allow read:   if isSignedIn() && (request.auth.uid == userId || isManager());
-      allow create: if isSignedIn() && request.auth.uid == userId;
+      allow create: if isSignedIn() && (request.auth.uid == userId || isAdmin());
       allow update: if isSignedIn() && (
         request.auth.uid == userId ||   // own profile
         isAdmin()                        // admin manages any user
