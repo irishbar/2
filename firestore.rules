@@ -153,9 +153,17 @@ service cloud.firestore {
     }
 
     // ─── settings ─────────────────────────────────────────────────────────────
-    // packages: driver + agent يحتاجانها لعرض الباقات — بقية الإعدادات للأدمن فقط
+    // packages + agents + delivery: يحتاجها الوكيل والسائق والزبون لحسابات التوصيل والعمولة
     match /settings/packages {
       allow read:  if isSignedIn();
+      allow write: if isAdmin();
+    }
+    match /settings/agents {
+      allow read:  if isSignedIn();
+      allow write: if isAdmin();
+    }
+    match /settings/delivery {
+      allow read:  if true;   // الزبون يحتاجها قبل تسجيل الدخول لحساب أجرة التوصيل
       allow write: if isAdmin();
     }
     match /settings/{docId} {

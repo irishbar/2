@@ -523,7 +523,7 @@
   import { auth, db } from '../js/firebase-config.js';
   import { onAuthChange, logout } from '../js/auth.js';
   import { fetchCategories, fetchProducts, addProduct, updateProduct, deleteProduct, addCategory, fetchDeliverySettings, saveDeliverySettings } from '../js/store.js';
-  import { fetchAllOrders, fetchMyOrders, updateOrderStatus, cancelOrder, assignAgentToOrder, CUSTOMER_CANCELLABLE_STATUSES, listenToOrders, ORDER_STATUSES, getStatusBadgeClass, formatPrice } from '../js/orders.js';
+  import { fetchAllOrders, fetchMyOrders, updateOrderStatus, cancelOrder, assignAgentToOrder, CUSTOMER_CANCELLABLE_STATUSES, listenToOrders, ORDER_STATUSES, getStatusBadgeClass, formatPrice, submitOrderRating } from '../js/orders.js';
   import { showToast, openModal, closeModal, hideLoader, formatDate } from '../js/ui.js';
 
   window.openModal = openModal;
@@ -835,6 +835,14 @@
               <button class="btn btn-danger btn-sm" onclick="customerCancelOrder('${o.id}')">
                 <i class="fas fa-times"></i> إلغاء الطلب
               </button>` : ''}
+            ${viewerRole === 'customer' && o.needsRating ? `
+              <button class="btn btn-primary btn-sm" style="background:var(--gold);border-color:var(--gold);" onclick="openRatingModal('${o.id}','${(o.driverName||'').replace(/'/g,"\\'")}')">
+                <i class="fas fa-star"></i> تقييم السائق
+              </button>` : ''}
+            ${viewerRole === 'customer' && o.driverRating ? `
+              <div style="font-size:0.78rem;color:var(--text-muted);display:flex;align-items:center;gap:4px;">
+                <i class="fas fa-star" style="color:var(--gold);"></i> تقييمك: ${o.driverRating}/5
+              </div>` : ''}
           </div>
         </div>
       </div>
@@ -886,15 +894,30 @@
   let _allAgentsCache = [];
   window.openAssignAgentModal = async function(orderId) {
     document.getElementById('assignAgentOrderId').value = orderId;
-    if (!_allAgentsCache.length) {
-      const { getDocs, collection } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
-      const snap = await getDocs(collection(db, 'agents'));
-      _allAgentsCache = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(a => a.active !== false);
+    const { getDocs, collection: col } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
+    const snap = await getDocs(col(db, 'agents'));
+    _allAgentsCache = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(a => a.active !== false);
+
+    // ── اقتراح الوكيل الأقرب حسب موقع الطلب ──────────────────────────────
+    const targetOrder = orders.find(o => o.id === orderId);
+    if (targetOrder?.location && _allAgentsCache.length) {
+      const { lat, lng } = targetOrder.location;
+      function hav(la1,lo1,la2,lo2){
+        const R=6371,dLat=(la1-la2)*Math.PI/180,dLng=(lo1-lo2)*Math.PI/180;
+        const a=Math.sin(dLat/2)**2+Math.cos(la2*Math.PI/180)*Math.cos(la1*Math.PI/180)*Math.sin(dLng/2)**2;
+        return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+      }
+      _allAgentsCache = _allAgentsCache
+        .map(a => ({ ...a, _dist: (a.lat && a.lng) ? hav(lat,lng,a.lat,a.lng) : 9999 }))
+        .sort((a, b) => a._dist - b._dist);
     }
+
     const sel = document.getElementById('assignAgentSelect');
-    sel.innerHTML = _allAgentsCache.map(a =>
-      `<option value="${a.id}">${a.name} — ${a.governorate || ''} ${a.district || ''}</option>`
-    ).join('');
+    sel.innerHTML = _allAgentsCache.map((a, i) => {
+      const distLabel = a._dist < 9999 ? ` — ${a._dist.toFixed(1)} كم` : '';
+      const nearest   = i === 0 && a._dist < 9999 ? ' ⭐ الأقرب' : '';
+      return `<option value="${a.id}">${a.name} — ${a.governorate || ''} ${a.district || ''}${distLabel}${nearest}</option>`;
+    }).join('');
     openModal('assignAgentModal');
   };
   window.confirmAssignAgent = async function() {
@@ -3696,6 +3719,129 @@
   };
 
 </script>
+<!-- ── Rating Modal (customer rates driver after delivery) ── -->
+<div class="modal-overlay" id="ratingModal">
+  <div class="modal-box" style="max-width:400px;">
+    <div class="modal-handle"></div>
+    <div class="modal-title" style="text-align:center;">
+      <i class="fas fa-star" style="color:var(--gold);"></i> تقييم الطلب
+    </div>
+    <input type="hidden" id="ratingOrderId">
+    <div style="text-align:center;margin-bottom:16px;color:var(--text-muted);font-size:0.88rem;"
+         id="ratingDriverName">—</div>
+
+    <!-- تقييم السائق -->
+    <div class="form-group">
+      <label class="form-label">تقييم السائق</label>
+      <div style="display:flex;gap:8px;justify-content:center;font-size:1.8rem;" id="driverStars">
+        <span data-v="1" onclick="setRating('driver',1)" style="cursor:pointer;opacity:0.35;">★</span>
+        <span data-v="2" onclick="setRating('driver',2)" style="cursor:pointer;opacity:0.35;">★</span>
+        <span data-v="3" onclick="setRating('driver',3)" style="cursor:pointer;opacity:0.35;">★</span>
+        <span data-v="4" onclick="setRating('driver',4)" style="cursor:pointer;opacity:0.35;">★</span>
+        <span data-v="5" onclick="setRating('driver',5)" style="cursor:pointer;opacity:0.35;">★</span>
+      </div>
+      <input type="hidden" id="ratingDriverVal" value="0">
+    </div>
+
+    <!-- تقييم الطلب -->
+    <div class="form-group">
+      <label class="form-label">تقييم الطلب</label>
+      <div style="display:flex;gap:8px;justify-content:center;font-size:1.8rem;" id="orderStars">
+        <span data-v="1" onclick="setRating('order',1)" style="cursor:pointer;opacity:0.35;">★</span>
+        <span data-v="2" onclick="setRating('order',2)" style="cursor:pointer;opacity:0.35;">★</span>
+        <span data-v="3" onclick="setRating('order',3)" style="cursor:pointer;opacity:0.35;">★</span>
+        <span data-v="4" onclick="setRating('order',4)" style="cursor:pointer;opacity:0.35;">★</span>
+        <span data-v="5" onclick="setRating('order',5)" style="cursor:pointer;opacity:0.35;">★</span>
+      </div>
+      <input type="hidden" id="ratingOrderVal" value="0">
+    </div>
+
+    <!-- ملاحظة اختيارية -->
+    <div class="form-group">
+      <label class="form-label">ملاحظة (اختياري)</label>
+      <textarea class="form-textarea" id="ratingComment" rows="2" placeholder="أخبرنا عن تجربتك..."></textarea>
+    </div>
+
+    <!-- تأكيد الاستلام -->
+    <div class="form-group" style="display:flex;align-items:center;gap:10px;background:var(--bg-elevated);border-radius:10px;padding:12px;">
+      <input type="checkbox" id="ratingConfirmDelivery" style="width:18px;height:18px;accent-color:var(--gold);">
+      <label for="ratingConfirmDelivery" style="font-size:0.88rem;cursor:pointer;">
+        أؤكد استلام طلبي بشكل صحيح
+      </label>
+    </div>
+
+    <button class="btn btn-primary btn-block" id="submitRatingBtn" onclick="submitRating()">
+      <i class="fas fa-paper-plane"></i> إرسال التقييم
+    </button>
+    <button class="btn btn-ghost btn-block" style="margin-top:8px;"
+            onclick="closeModal('ratingModal')">لاحقاً</button>
+  </div>
+</div>
+
+<script type="module">
+  // Rating modal logic — injected after main module
+  window.openRatingModal = function(orderId, driverName) {
+    document.getElementById('ratingOrderId').value = orderId;
+    document.getElementById('ratingDriverName').textContent =
+      driverName ? `السائق: ${driverName}` : 'قيّم تجربتك';
+    document.getElementById('ratingDriverVal').value = '0';
+    document.getElementById('ratingOrderVal').value  = '0';
+    document.getElementById('ratingComment').value   = '';
+    document.getElementById('ratingConfirmDelivery').checked = false;
+    // Reset stars
+    ['driverStars','orderStars'].forEach(id => {
+      document.querySelectorAll(`#${id} span`).forEach(s => {
+        s.style.color   = '#ccc';
+        s.style.opacity = '0.35';
+      });
+    });
+    window.openModal('ratingModal');
+  };
+
+  window.setRating = function(type, value) {
+    const starsId = type === 'driver' ? 'driverStars' : 'orderStars';
+    const inputId = type === 'driver' ? 'ratingDriverVal' : 'ratingOrderVal';
+    document.getElementById(inputId).value = value;
+    document.querySelectorAll(`#${starsId} span`).forEach(s => {
+      const v = parseInt(s.dataset.v);
+      s.style.color   = v <= value ? '#f59e0b' : '#ccc';
+      s.style.opacity = v <= value ? '1' : '0.35';
+    });
+  };
+
+  window.submitRating = async function() {
+    const orderId     = document.getElementById('ratingOrderId').value;
+    const driverRating = parseInt(document.getElementById('ratingDriverVal').value);
+    const orderRating  = parseInt(document.getElementById('ratingOrderVal').value);
+    const comment     = document.getElementById('ratingComment').value.trim();
+    const confirmed   = document.getElementById('ratingConfirmDelivery').checked;
+
+    if (!confirmed) {
+      window.showToast('يرجى تأكيد استلام طلبك أولاً', 'warning');
+      return;
+    }
+    if (driverRating === 0 || orderRating === 0) {
+      window.showToast('يرجى اختيار تقييم للسائق والطلب', 'warning');
+      return;
+    }
+    const btn = document.getElementById('submitRatingBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    try {
+      const { submitOrderRating } = await import('../js/orders.js');
+      await submitOrderRating(orderId, { driverRating, orderRating, comment });
+      window.showToast('✅ شكراً على تقييمك!', 'success');
+      window.closeModal('ratingModal');
+      // Refresh my orders
+      if (typeof window.navigateTo === 'function') window.navigateTo('my-orders');
+    } catch (e) {
+      window.showToast('حدث خطأ، حاول مجدداً', 'error');
+    }
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-paper-plane"></i> إرسال التقييم';
+  };
+</script>
+
 <script src="../js/pwa.js"></script>
 </body>
 </html>
