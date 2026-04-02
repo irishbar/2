@@ -413,11 +413,37 @@
   </div>
 </div>
 
+<!-- ── Assign Agent Modal ── -->
+<div class="modal-overlay" id="assignAgentModal">
+  <div class="modal-box" style="max-width:400px;">
+    <div class="modal-header">
+      <div class="modal-title"><i class="fas fa-user-tie"></i> تعيين وكيل للطلب</div>
+      <button class="modal-close" onclick="closeModal('assignAgentModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="assignAgentOrderId">
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label">اختر الوكيل</label>
+        <select class="form-input" id="assignAgentSelect"></select>
+        <div style="font-size:0.75rem;color:var(--text-muted);margin-top:6px;">
+          سيتغير حالة الطلب إلى <strong>قيد التجهيز</strong> ويُرسَل إشعار تلجرام للوكيل تلقائياً
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('assignAgentModal')">إلغاء</button>
+      <button class="btn btn-primary" id="assignAgentBtn" onclick="confirmAssignAgent()">
+        <i class="fas fa-check"></i> تأكيد
+      </button>
+    </div>
+  </div>
+</div>
+
 <script type="module">
   import { auth, db } from '../js/firebase-config.js';
   import { onAuthChange, logout } from '../js/auth.js';
   import { fetchCategories, fetchProducts, addProduct, updateProduct, deleteProduct, addCategory, fetchDeliverySettings, saveDeliverySettings } from '../js/store.js';
-  import { fetchAllOrders, fetchMyOrders, updateOrderStatus, cancelOrder, CUSTOMER_CANCELLABLE_STATUSES, listenToOrders, ORDER_STATUSES, getStatusBadgeClass, formatPrice } from '../js/orders.js';
+  import { fetchAllOrders, fetchMyOrders, updateOrderStatus, cancelOrder, assignAgentToOrder, CUSTOMER_CANCELLABLE_STATUSES, listenToOrders, ORDER_STATUSES, getStatusBadgeClass, formatPrice } from '../js/orders.js';
   import { showToast, openModal, closeModal, hideLoader, formatDate } from '../js/ui.js';
 
   window.openModal = openModal;
@@ -658,16 +684,16 @@
     const itemsText = o.items?.map(i => `${i.emoji || ''} ${i.name} ×${i.quantity}`).join('، ') || '';
     const isAdmin   = viewerRole === 'admin' || viewerRole === 'manager';
 
-    // زر الإلغاء للزبون — يظهر فقط قبل خروج السائق
-    const canCustomerCancel = viewerRole === 'customer' &&
-      CUSTOMER_CANCELLABLE_STATUSES.includes(o.status);
+    const productsTotal = (o.items || []).reduce((s, i) => s + ((i.price || 0) * (i.quantity || 1)), 0);
+    const grandTotal    = productsTotal + (o.deliveryFee || 0) + (o.agentShare || 0) + (o.platformShare || 0);
 
-    // تنبيه "لا يمكن الإلغاء" للزبون بعد خروج السائق
+    const canCustomerCancel = viewerRole === 'customer' && CUSTOMER_CANCELLABLE_STATUSES.includes(o.status);
     const cancelNote = viewerRole === 'customer' && o.status === 'في التوصيل'
       ? `<div style="font-size:0.76rem;color:#d97706;margin-top:8px;display:flex;align-items:center;gap:6px;">
            <i class="fas fa-motorcycle"></i> السائق في الطريق — للإلغاء تواصل مع الإدارة
-         </div>`
-      : '';
+         </div>` : '';
+
+    const canAssignAgent = isAdmin && !o.agentId && o.status === 'جديد';
 
     return `
       <div class="order-card">
@@ -682,14 +708,41 @@
         <div class="order-address">
           <i class="fas fa-phone" style="color:var(--gold);margin-left:4px;"></i>${o.phone}
           &nbsp;|&nbsp;
-          <i class="fas fa-map-marker-alt" style="color:var(--gold);margin-left:4px;"></i>${o.address}
+          <i class="fas fa-map-marker-alt" style="color:var(--gold);margin-left:4px;"></i>${o.address || '—'}
         </div>
+        ${o.location ? `<div style="font-size:0.78rem;margin-top:4px;">
+          <a href="https://www.google.com/maps?q=${o.location.lat},${o.location.lng}" target="_blank" style="color:var(--blue);">
+            <i class="fas fa-map"></i> عرض الموقع على الخارطة
+          </a></div>` : ''}
         <div class="order-items-preview">${itemsText}</div>
+
+        <!-- تفاصيل المبالغ -->
+        <div style="background:var(--bg-elevated);border-radius:10px;padding:10px 12px;margin-top:10px;font-size:0.82rem;">
+          <div style="display:flex;justify-content:space-between;color:var(--text-muted);margin-bottom:4px;">
+            <span>المنتجات</span><span>${formatPrice(productsTotal)}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;color:var(--text-muted);margin-bottom:4px;">
+            <span>التوصيل</span><span>${formatPrice(o.deliveryFee || 0)}</span>
+          </div>
+          ${o.agentShare ? `<div style="display:flex;justify-content:space-between;color:var(--text-muted);margin-bottom:4px;">
+            <span>عمولة الوكيل ${o.agentName ? '('+o.agentName+')' : ''}</span><span>${formatPrice(o.agentShare)}</span>
+          </div>` : ''}
+          ${o.driverName ? `<div style="display:flex;justify-content:space-between;color:var(--text-muted);margin-bottom:4px;">
+            <span>السائق</span><span>${o.driverName}</span>
+          </div>` : ''}
+          <div style="display:flex;justify-content:space-between;font-weight:800;color:var(--text-primary);border-top:1px solid var(--border);padding-top:6px;margin-top:4px;">
+            <span>الإجمالي</span><span style="color:var(--gold-dark);">${formatPrice(grandTotal)}</span>
+          </div>
+        </div>
+
         ${cancelNote}
-        <div class="order-footer">
-          <div class="order-total">${formatPrice(o.total)}</div>
-          <div style="display:flex;gap:8px;align-items:center;">
+        <div class="order-footer" style="margin-top:10px;">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;width:100%;">
             ${isAdmin ? `
+              ${canAssignAgent ? `
+                <button class="btn btn-primary btn-sm" onclick="openAssignAgentModal('${o.id}')">
+                  <i class="fas fa-user-tie"></i> تعيين وكيل
+                </button>` : ''}
               <button class="btn btn-secondary btn-sm" onclick="openStatusModal('${o.id}', '${o.status}')">
                 <i class="fas fa-edit"></i> تحديث
               </button>
@@ -701,8 +754,7 @@
             ${canCustomerCancel ? `
               <button class="btn btn-danger btn-sm" onclick="customerCancelOrder('${o.id}')">
                 <i class="fas fa-times"></i> إلغاء الطلب
-              </button>
-            ` : ''}
+              </button>` : ''}
           </div>
         </div>
       </div>
@@ -748,6 +800,39 @@
     } catch (e) {
       showToast(e.message || 'تعذّر إلغاء الطلب', 'error');
     }
+  };
+
+  // ── تعيين وكيل يدوياً للطلب (أدمن) ──────────────────────────────────────────
+  let _allAgentsCache = [];
+  window.openAssignAgentModal = async function(orderId) {
+    document.getElementById('assignAgentOrderId').value = orderId;
+    if (!_allAgentsCache.length) {
+      const { getDocs, collection } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
+      const snap = await getDocs(collection(db, 'agents'));
+      _allAgentsCache = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(a => a.active !== false);
+    }
+    const sel = document.getElementById('assignAgentSelect');
+    sel.innerHTML = _allAgentsCache.map(a =>
+      `<option value="${a.id}">${a.name} — ${a.governorate || ''} ${a.district || ''}</option>`
+    ).join('');
+    openModal('assignAgentModal');
+  };
+  window.confirmAssignAgent = async function() {
+    const orderId  = document.getElementById('assignAgentOrderId').value;
+    const agentId  = document.getElementById('assignAgentSelect').value;
+    const agent    = _allAgentsCache.find(a => a.id === agentId);
+    if (!agent) { showToast('اختر وكيلاً', 'warning'); return; }
+    const btn = document.getElementById('assignAgentBtn');
+    btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    try {
+      await assignAgentToOrder(orderId, agent);
+      showToast(`✅ تم تعيين الوكيل ${agent.name} وإرسال الإشعار`, 'success');
+      closeModal('assignAgentModal');
+      await renderPage('orders');
+    } catch (e) {
+      showToast(e.message || 'حدث خطأ', 'error');
+    }
+    btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> تأكيد';
   };
 
   // ─────────────────────────────────────
@@ -1096,18 +1181,28 @@
     try {
       const { setDoc, updateDoc, doc } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
       if (id) {
-        // Edit existing — update Firestore only
+        // تعديل مستخدم موجود
         await updateDoc(doc(db, 'users', id), { name, role });
         showToast('✅ تم تحديث المستخدم', 'success');
       } else {
-        // Add new — create via Admin API is needed for Auth
-        // We just create Firestore record; email/pass handled separately
-        const email = document.getElementById('umEmail').value;
-        // Create a placeholder doc with generated ID
-        const newId = 'manual_' + Date.now();
-        await setDoc(doc(db, 'users', newId), { name, email, role });
-        showToast('✅ تم إضافة المستخدم في قاعدة البيانات', 'success');
-        showToast('⚠️ أنشئ حساب Auth يدوياً من Firebase Console', 'info', 5000);
+        // إنشاء مستخدم جديد باستخدام تطبيق Firebase ثانوي مؤقت
+        const email    = document.getElementById('umEmail').value.trim();
+        const password = document.getElementById('umPass').value;
+        if (!email || !password) { showToast('البريد وكلمة المرور مطلوبان', 'warning'); btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> حفظ'; return; }
+        const { initializeApp, getApps } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js");
+        const { getAuth: getSecondaryAuth, createUserWithEmailAndPassword, signOut: secondarySignOut } =
+          await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js");
+        // استخدم تطبيق ثانوي حتى لا يؤثر على جلسة الأدمن
+        const secondaryApp = initializeApp(
+          { apiKey: "AIzaSyA1jo8L1gLSsDkJa7k0p17SpMXV35d-VcQ", authDomain: "irish-a68ec.firebaseapp.com", projectId: "irish-a68ec", appId: "1:305458859946:web:722d1f79633e0906e7a5d3" },
+          'secondary-' + Date.now()
+        );
+        const secondaryAuth = getSecondaryAuth(secondaryApp);
+        const cred = await createUserWithEmailAndPassword(secondaryAuth, email, password);
+        const newUid = cred.user.uid;
+        await secondarySignOut(secondaryAuth);
+        await setDoc(doc(db, 'users', newUid), { name, email, role, createdAt: new Date().toISOString() });
+        showToast('✅ تم إنشاء الحساب بنجاح', 'success');
       }
       closeModal('userModal');
       await renderPage('users');
@@ -2438,6 +2533,13 @@
             </div>
           </div>
           <div class="form-group" style="margin-bottom:14px;">
+            <label class="form-label">Telegram Chat ID <span style="color:var(--text-muted);font-size:0.78rem;">(لاستلام إشعارات الطلبات)</span></label>
+            <input type="text" class="form-input" id="agentTelegramId" placeholder="مثال: 123456789" dir="ltr" inputmode="numeric">
+            <div style="font-size:0.72rem;color:var(--text-muted);margin-top:3px;">
+              ابعث <code>/start</code> لبوت التلجرام ← انسخ الـ Chat ID من <a href="https://t.me/userinfobot" target="_blank" style="color:var(--gold);">@userinfobot</a>
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom:14px;">
             <label class="form-label">ربط بحساب مستخدم</label>
             <select class="form-input" id="agentUserId">
               ${userOptions()}
@@ -2539,6 +2641,10 @@
               </div>
             </div>
             <div class="form-group" style="margin-top:12px;margin-bottom:0;">
+              <label class="form-label">Telegram Chat ID</label>
+              <input type="text" class="form-input" id="editAgentTelegramId" dir="ltr" inputmode="numeric">
+            </div>
+            <div class="form-group" style="margin-top:12px;margin-bottom:0;">
               <label class="form-label">ربط بحساب مستخدم</label>
               <select class="form-input" id="editAgentUserId">
                 ${userOptions()}
@@ -2576,14 +2682,15 @@
       btn.disabled = true;
       btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الإضافة...';
       try {
+        const telegramId  = document.getElementById('agentTelegramId').value.trim() || null;
         const agentData = { name, phone, lat, lng, coverageKm, governorate, district, active: true, createdAt: new Date().toISOString() };
+        if (telegramId) agentData.telegramId = telegramId;
         if (commRaw !== '') {
           agentData.commissionRate = parseFloat(commRaw);
           agentData.commissionType = document.getElementById('agentCommType').value;
         }
         if (linkedUserId) {
           agentData.userId = linkedUserId;
-          // Grant agent role to the linked user
           await setDoc(doc(db, 'users', linkedUserId), { role: 'agent' }, { merge: true });
         }
         await addDoc(collection(db, 'agents'), agentData);
@@ -2597,19 +2704,18 @@
     window.openEditAgent = function(id) {
       const a = agents.find(x => x.id === id);
       if (!a) return;
-      document.getElementById('editAgentId').value           = id;
-      document.getElementById('editAgentName').value         = a.name        || '';
-      document.getElementById('editAgentPhone').value        = a.phone       || '';
-      document.getElementById('editAgentLat').value          = a.lat         || '';
-      document.getElementById('editAgentLng').value          = a.lng         || '';
-      document.getElementById('editAgentCommType').value     = a.commissionType  ?? 'percent';
-      document.getElementById('editAgentCommRate').value     = a.commissionRate  ?? '';
-      document.getElementById('editAgentCoverageKm').value   = a.coverageKm  ?? '';
-      // Populate governorate then districts
+      document.getElementById('editAgentId').value             = id;
+      document.getElementById('editAgentName').value           = a.name           || '';
+      document.getElementById('editAgentPhone').value          = a.phone          || '';
+      document.getElementById('editAgentLat').value            = a.lat            || '';
+      document.getElementById('editAgentLng').value            = a.lng            || '';
+      document.getElementById('editAgentCommType').value       = a.commissionType ?? 'percent';
+      document.getElementById('editAgentCommRate').value       = a.commissionRate ?? '';
+      document.getElementById('editAgentCoverageKm').value     = a.coverageKm     ?? '';
+      document.getElementById('editAgentTelegramId').value     = a.telegramId     || '';
       const govSel = document.getElementById('editAgentGov');
       govSel.value = a.governorate || '';
       updateAgentDistricts(a.governorate || '', 'editAgentDist', a.district || '');
-      // Linked user
       document.getElementById('editAgentUserId').value = a.userId || '';
       document.getElementById('editAgentModal').style.display = 'flex';
     };
@@ -2624,11 +2730,13 @@
         const governorate   = document.getElementById('editAgentGov').value;
         const district      = document.getElementById('editAgentDist').value;
         const linkedUserId  = document.getElementById('editAgentUserId').value;
+        const telegramIdEdit = document.getElementById('editAgentTelegramId').value.trim();
         const data = {
-          name:  document.getElementById('editAgentName').value.trim(),
-          phone: document.getElementById('editAgentPhone').value.trim(),
-          lat:   parseFloat(document.getElementById('editAgentLat').value),
-          lng:   parseFloat(document.getElementById('editAgentLng').value),
+          name:       document.getElementById('editAgentName').value.trim(),
+          phone:      document.getElementById('editAgentPhone').value.trim(),
+          lat:        parseFloat(document.getElementById('editAgentLat').value),
+          lng:        parseFloat(document.getElementById('editAgentLng').value),
+          telegramId: telegramIdEdit || null,
           governorate: governorate || '',
           district:    district    || '',
           updatedAt: new Date().toISOString()
