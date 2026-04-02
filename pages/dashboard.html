@@ -398,10 +398,18 @@
       </div>
       <div class="form-group">
         <label class="form-label">الصلاحية</label>
-        <select class="form-select" id="umRole">
+        <select class="form-select" id="umRole" onchange="toggleDriverAgentField(this.value)">
           <option value="customer">🛒 عميل</option>
+          <option value="agent">🏪 وكيل</option>
+          <option value="driver">🏍️ سائق</option>
           <option value="manager">🔧 مدير</option>
           <option value="admin">👑 مدير عام</option>
+        </select>
+      </div>
+      <div id="umDriverAgentGroup" class="form-group" style="display:none;">
+        <label class="form-label">ربط السائق بوكيل <span style="color:var(--text-muted);font-size:0.78rem;">(اختياري — يمكن ربطه لاحقاً)</span></label>
+        <select class="form-select" id="umDriverAgentId">
+          <option value="">— بدون وكيل —</option>
         </select>
       </div>
       <button type="submit" class="btn btn-primary btn-block" id="userSubmitBtn">
@@ -1094,8 +1102,8 @@
     const snap = await getDocs(collection(db, 'users'));
     const users = snap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-    const roleColors = { admin: 'badge-gold', manager: 'badge-blue', customer: 'badge-gray' };
-    const roleLabels = { admin: '👑 مدير عام', manager: '🔧 مدير', customer: '🛒 عميل' };
+    const roleColors = { admin: 'badge-gold', manager: 'badge-blue', agent: 'badge-green', driver: 'badge-blue', customer: 'badge-gray' };
+    const roleLabels = { admin: '👑 مدير عام', manager: '🔧 مدير', agent: '🏪 وكيل', driver: '🏍️ سائق', customer: '🛒 عميل' };
 
     content.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
@@ -1146,12 +1154,32 @@
     `;
   }
 
+  // تحميل قائمة الوكلاء لقائمة ربط السائق
+  async function loadAgentsForSelect() {
+    const { getDocs, collection } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
+    const snap = await getDocs(collection(db, 'agents'));
+    const sel = document.getElementById('umDriverAgentId');
+    sel.innerHTML = '<option value="">— بدون وكيل —</option>' +
+      snap.docs.map(d => `<option value="${d.id}">${d.data().name || d.id}</option>`).join('');
+  }
+
+  window.toggleDriverAgentField = function(role) {
+    const grp = document.getElementById('umDriverAgentGroup');
+    if (role === 'driver') {
+      grp.style.display = '';
+      loadAgentsForSelect();
+    } else {
+      grp.style.display = 'none';
+    }
+  };
+
   window.openAddUser = function() {
     document.getElementById('umId').value = '';
     document.getElementById('umName').value = '';
     document.getElementById('umEmail').value = '';
     document.getElementById('umPass').value = '';
     document.getElementById('umRole').value = 'customer';
+    document.getElementById('umDriverAgentGroup').style.display = 'none';
     document.getElementById('userModalTitle').innerHTML = '<i class="fas fa-user-plus"></i> إضافة مستخدم';
     document.getElementById('umEmailGroup').style.display = '';
     document.getElementById('umPassGroup').style.display = '';
@@ -1164,6 +1192,7 @@
     document.getElementById('umEmail').value = email;
     document.getElementById('umPass').value = '';
     document.getElementById('umRole').value = role;
+    document.getElementById('umDriverAgentGroup').style.display = 'none';
     document.getElementById('userModalTitle').innerHTML = '<i class="fas fa-user-edit"></i> تعديل المستخدم';
     document.getElementById('umEmailGroup').style.display = 'none';
     document.getElementById('umPassGroup').style.display = 'none';
@@ -1202,6 +1231,21 @@
         const newUid = cred.user.uid;
         await secondarySignOut(secondaryAuth);
         await setDoc(doc(db, 'users', newUid), { name, email, role, createdAt: new Date().toISOString() });
+
+        // إذا كان السائق: أنشئ سجل driver في Firestore تلقائياً
+        if (role === 'driver') {
+          const { addDoc, collection: col2 } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
+          const agentId = document.getElementById('umDriverAgentId')?.value || null;
+          await addDoc(col2(db, 'drivers'), {
+            userId:   newUid,
+            agentId:  agentId || null,
+            name,
+            phone:    '',
+            balance:  0,
+            active:   true,
+            createdAt: new Date().toISOString()
+          });
+        }
         showToast('✅ تم إنشاء الحساب بنجاح', 'success');
       }
       closeModal('userModal');
