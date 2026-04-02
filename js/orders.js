@@ -263,6 +263,31 @@ export async function updateOrderStatus(orderId, status) {
   await updateDoc(doc(db, 'orders', orderId), { status });
   // 🔔 Send Telegram notification for completed/cancelled
   sendStatusNotification(orderId, status);
+
+  // ── خصم عمولة الوكيل عند اكتمال الطلب ──────────────────────────────────
+  if (status === 'مكتمل') {
+    try {
+      const orderSnap = await getDoc(doc(db, 'orders', orderId));
+      if (orderSnap.exists()) {
+        const order = orderSnap.data();
+        if (order.agentId && order.agentShare > 0) {
+          await updateDoc(doc(db, 'agents', order.agentId), {
+            balance:   increment(-Math.abs(order.agentShare)),
+            updatedAt: new Date().toISOString()
+          });
+          await addDoc(collection(db, 'balance_deductions'), {
+            agentId:   order.agentId,
+            amount:    order.agentShare,
+            orderId,
+            note: `عمولة طلب #${orderId.slice(-6).toUpperCase()}`,
+            createdAt: new Date().toISOString()
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('Agent balance deduction failed:', e);
+    }
+  }
 }
 
 // ── Send notification to driver's personal Telegram ──
@@ -378,6 +403,27 @@ export async function cancelOrder(orderId, cancelledBy = 'admin') {
       });
     } catch (e) {
       console.warn('Driver refund failed:', e);
+    }
+  }
+
+  // ── استرجاع رصيد الوكيل إن كانت العمولة قد خُصمت (طلب مكتمل ثم ملغي) ──
+  if (order.agentId && order.agentShare > 0 && order.status === 'مكتمل') {
+    try {
+      await updateDoc(doc(db, 'agents', order.agentId), {
+        balance:   increment(order.agentShare),
+        updatedAt: new Date().toISOString()
+      });
+      await addDoc(collection(db, 'balance_topups'), {
+        targetId:     order.agentId,
+        targetType:   'agent_refund',
+        orderId,
+        creditAmount: order.agentShare,
+        paidAmount:   0,
+        note: `استرجاع عمولة — طلب ملغي #${orderId.slice(-6).toUpperCase()}`,
+        createdAt:    new Date().toISOString()
+      });
+    } catch (e) {
+      console.warn('Agent refund failed:', e);
     }
   }
 
