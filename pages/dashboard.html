@@ -455,6 +455,44 @@
   </div>
 </div>
 
+<!-- ── Agent Balance Top-up Modal ── -->
+<div class="modal-overlay" id="topupAgentModal">
+  <div class="modal-box" style="max-width:420px;">
+    <div class="modal-header">
+      <div class="modal-title"><i class="fas fa-wallet"></i> تعزيز رصيد الوكيل</div>
+      <button class="modal-close" onclick="closeModal('topupAgentModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="topupAgentId">
+      <div style="text-align:center;margin-bottom:16px;">
+        <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:4px;">الوكيل</div>
+        <div style="font-weight:800;font-size:1rem;" id="topupAgentName">—</div>
+        <div style="font-size:0.78rem;color:var(--text-muted);margin-top:6px;">الرصيد الحالي:
+          <strong id="topupAgentCurrentBalance" style="color:var(--green);">—</strong>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">المبلغ المدفوع من الوكيل (د.ع)</label>
+        <input type="number" class="form-input" id="topupAgentPaid" placeholder="مثال: 8000" min="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label">الرصيد المُضاف للوكيل (د.ع)</label>
+        <input type="number" class="form-input" id="topupAgentCredit" placeholder="مثال: 100000" min="0">
+      </div>
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label">ملاحظة (اختياري)</label>
+        <input type="text" class="form-input" id="topupAgentNote" placeholder="سبب التعزيز أو رقم الباقة...">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('topupAgentModal')">إلغاء</button>
+      <button class="btn btn-primary" id="topupAgentBtn" onclick="submitTopupAgent()">
+        <i class="fas fa-check-circle"></i> تأكيد التعزيز
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- ── Assign Agent Modal ── -->
 <div class="modal-overlay" id="assignAgentModal">
   <div class="modal-box" style="max-width:400px;">
@@ -2771,6 +2809,72 @@
         showToast('🗑 تم حذف الوكيل', 'success');
         await renderAgentsPage(content);
       } catch { showToast('حدث خطأ', 'error'); }
+    };
+
+    // ── فتح موديل تعزيز رصيد الوكيل ──────────────────────────────────────────
+    window.openTopupAgentModal = function(id, name, currentBalance) {
+      document.getElementById('topupAgentId').value = id;
+      document.getElementById('topupAgentName').textContent = name;
+      document.getElementById('topupAgentCurrentBalance').textContent =
+        Number(currentBalance).toLocaleString('en-US') + ' د.ع';
+      document.getElementById('topupAgentPaid').value   = '';
+      document.getElementById('topupAgentCredit').value = '';
+      document.getElementById('topupAgentNote').value   = '';
+      // ملء القيم الافتراضية من إعدادات الباقة
+      try {
+        const pkgSnap = getDoc(doc(db, 'settings', 'packages'));
+        pkgSnap.then(s => {
+          if (s.exists()) {
+            const d = s.data();
+            if (d.agentPayAmount    != null) document.getElementById('topupAgentPaid').value   = d.agentPayAmount;
+            if (d.agentCreditAmount != null) document.getElementById('topupAgentCredit').value = d.agentCreditAmount;
+          }
+        });
+      } catch {}
+      openModal('topupAgentModal');
+    };
+
+    // ── تأكيد تعزيز رصيد الوكيل ──────────────────────────────────────────────
+    window.submitTopupAgent = async function() {
+      const btn        = document.getElementById('topupAgentBtn');
+      const agentId    = document.getElementById('topupAgentId').value;
+      const paid       = parseFloat(document.getElementById('topupAgentPaid').value);
+      const credit     = parseFloat(document.getElementById('topupAgentCredit').value);
+      const note       = document.getElementById('topupAgentNote').value.trim();
+
+      if (isNaN(paid) || isNaN(credit) || paid < 0 || credit <= 0) {
+        showToast('أدخل المبلغ المدفوع والرصيد المُضاف بشكل صحيح', 'warning'); return;
+      }
+
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري التعزيز...';
+      try {
+        const { increment, addDoc: firestoreAddDoc, collection: firestoreCol, updateDoc: firestoreUpdate, doc: firestoreDoc } =
+          await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
+
+        // زيادة رصيد الوكيل
+        await firestoreUpdate(firestoreDoc(db, 'agents', agentId), {
+          balance:   increment(credit),
+          updatedAt: new Date().toISOString()
+        });
+        // تسجيل العملية في سجل التعزيزات
+        await firestoreAddDoc(firestoreCol(db, 'balance_topups'), {
+          targetId:     agentId,
+          targetType:   'agent',
+          creditAmount: credit,
+          paidAmount:   paid,
+          note:         note || '',
+          createdAt:    new Date().toISOString()
+        });
+
+        closeModal('topupAgentModal');
+        showToast('✅ تم تعزيز رصيد الوكيل بنجاح', 'success');
+        await renderAgentsPage(content);
+      } catch (e) {
+        showToast('حدث خطأ: ' + e.message, 'error');
+      }
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-check-circle"></i> تأكيد التعزيز';
     };
   }
 
