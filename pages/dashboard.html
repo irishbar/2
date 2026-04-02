@@ -2438,7 +2438,7 @@
         <div style="text-align:center;padding:40px;color:var(--text-muted);">
           <div style="font-size:3rem;margin-bottom:12px;">🤝</div>
           <div style="font-weight:600;">لا يوجد وكلاء بعد</div>
-          <div style="font-size:0.83rem;margin-top:6px;">أضف أول وكيل من النموذج أدناه</div>
+          <div style="font-size:0.83rem;margin-top:6px;">اضغط "إضافة وكيل" لإضافة أول وكيل</div>
         </div>`;
 
       return agents.map(a => {
@@ -2515,185 +2515,138 @@
       }).join('');
     }
 
+    // بناء HTML خيارات المستخدمين (agent + غير مرتبطين)
+    function userOptionsForAgent(selectedId = '') {
+      const eligible = users.filter(u => !u.role || u.role === 'customer' || u.role === 'agent' || u.id === selectedId);
+      return `<option value="">— بدون حساب —</option>` +
+        eligible.map(u =>
+          `<option value="${u.id}" ${u.id === selectedId ? 'selected' : ''}>${u.name || u.email} (${u.email || u.id})</option>`
+        ).join('');
+    }
+
+    // HTML مشترك لحقول الوكيل — يُستخدم في كلا الموديلَين
+    function agentFormFields(prefix, a = {}) {
+      const govVal  = a.governorate || '';
+      const distVal = a.district    || '';
+      return `
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+          <div class="form-group" style="margin:0;">
+            <label class="form-label">الاسم *</label>
+            <input type="text" class="form-input" id="${prefix}Name" value="${a.name||''}" placeholder="محمد أحمد">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label class="form-label">الهاتف *</label>
+            <input type="text" class="form-input" id="${prefix}Phone" value="${a.phone||''}" placeholder="07XXXXXXXXX" dir="ltr">
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+          <div class="form-group" style="margin:0;">
+            <label class="form-label">خط العرض *</label>
+            <input type="number" step="any" class="form-input" id="${prefix}Lat" value="${a.lat||''}" placeholder="32.61234" dir="ltr">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label class="form-label">خط الطول *</label>
+            <input type="number" step="any" class="form-input" id="${prefix}Lng" value="${a.lng||''}" placeholder="44.00123" dir="ltr">
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+          <div class="form-group" style="margin:0;">
+            <label class="form-label">المحافظة *</label>
+            <select class="form-input" id="${prefix}Gov" onchange="updateAgentDistricts(this.value,'${prefix}Dist')">
+              ${govOptions(govVal)}
+            </select>
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label class="form-label">القضاء *</label>
+            <select class="form-input" id="${prefix}Dist">${distOptions(govVal, distVal)}</select>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+          <div class="form-group" style="margin:0;">
+            <label class="form-label">نوع العمولة</label>
+            <select class="form-input" id="${prefix}CommType">
+              <option value="percent" ${(a.commissionType||'percent')==='percent'?'selected':''}>نسبة %</option>
+              <option value="fixed"   ${a.commissionType==='fixed'?'selected':''}>مبلغ ثابت</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label class="form-label">قيمة العمولة</label>
+            <input type="number" min="0" class="form-input" id="${prefix}CommRate" value="${a.commissionRate??''}" placeholder="${defaultCommissionRate}" dir="ltr">
+            <div style="font-size:0.7rem;color:var(--text-muted);margin-top:2px;">فارغ = الافتراضية</div>
+          </div>
+        </div>
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label">نطاق التغطية (كيلومتر) *</label>
+          <input type="number" min="1" max="100" step="any" class="form-input" id="${prefix}CoverageKm" value="${a.coverageKm||''}" placeholder="8" dir="ltr">
+        </div>
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label">Telegram Chat ID <span style="color:var(--text-muted);font-size:0.75rem;">(لإشعارات الطلبات)</span></label>
+          <input type="text" class="form-input" id="${prefix}TelegramId" value="${a.telegramId||''}" placeholder="123456789" dir="ltr" inputmode="numeric">
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">ربط بحساب مستخدم</label>
+          <select class="form-input" id="${prefix}UserId">
+            ${userOptionsForAgent(a.userId||'')}
+          </select>
+          <div style="font-size:0.72rem;color:var(--text-muted);margin-top:4px;">
+            سيُمنح الحساب صلاحية <strong>وكيل</strong> — يدخل عبر صفحة تسجيل الدخول العادية
+          </div>
+        </div>
+      `;
+    }
+
     content.innerHTML = `
-      <div style="margin-bottom:20px;">
-        <h2 style="font-family:var(--font-display);color:var(--gold-dark);font-size:1.4rem;margin-bottom:4px;">
-          <i class="fas fa-user-tie" style="color:var(--gold);margin-left:8px;"></i>إدارة الوكلاء
-        </h2>
-        <p style="color:var(--text-muted);font-size:0.83rem;">
-          العمولة تُحسَب من <strong style="color:var(--gold-dark);">هامش الربح</strong> (سعر البيع − سعر الشراء) × نسبة الوكيل.
-          النسبة الافتراضية: <strong>${defaultCommissionRate}%</strong>
-          — <a href="#" onclick="navigateTo('setup');return false;" style="color:var(--gold);">تغيير الافتراضية</a>
-        </p>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+        <div>
+          <h2 style="font-family:var(--font-display);color:var(--gold-dark);font-size:1.4rem;margin-bottom:2px;">
+            <i class="fas fa-user-tie" style="color:var(--gold);margin-left:8px;"></i>إدارة الوكلاء
+          </h2>
+          <p style="color:var(--text-muted);font-size:0.82rem;margin:0;">
+            النسبة الافتراضية: <strong>${defaultCommissionRate}%</strong> —
+            <a href="#" onclick="navigateTo('setup');return false;" style="color:var(--gold);">تغيير</a>
+          </p>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="openAddAgentModal()">
+          <i class="fas fa-plus"></i> إضافة وكيل
+        </button>
       </div>
 
-      <!-- Table -->
-      <div class="section-card" style="margin-bottom:20px;">
+      <div class="section-card">
         <div class="section-card-header">
           <div class="section-card-title"><i class="fas fa-users"></i> قائمة الوكلاء</div>
+          <span class="badge badge-gold">${agents.length}</span>
         </div>
         <div class="section-card-body">${renderTable(agents)}</div>
       </div>
 
-      <!-- Add Agent -->
-      <div class="section-card">
-        <div class="section-card-header">
-          <div class="section-card-title"><i class="fas fa-user-plus"></i> إضافة وكيل جديد</div>
-        </div>
-        <div class="section-card-body">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
-            <div class="form-group" style="margin:0;">
-              <label class="form-label">اسم الوكيل *</label>
-              <input type="text" class="form-input" id="agentName" placeholder="محمد أحمد">
-            </div>
-            <div class="form-group" style="margin:0;">
-              <label class="form-label">رقم الهاتف *</label>
-              <input type="text" class="form-input" id="agentPhone" placeholder="07XXXXXXXXX" dir="ltr">
-            </div>
+      <!-- Add Agent Modal -->
+      <div id="addAgentModal" class="modal-overlay" style="display:none;">
+        <div class="modal-box" style="max-width:480px;max-height:90vh;overflow-y:auto;">
+          <div class="modal-header">
+            <div class="modal-title"><i class="fas fa-user-plus"></i> إضافة وكيل جديد</div>
+            <button class="modal-close" onclick="document.getElementById('addAgentModal').style.display='none'">✕</button>
           </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
-            <div class="form-group" style="margin:0;">
-              <label class="form-label">خط العرض *</label>
-              <input type="number" step="any" class="form-input" id="agentLat" placeholder="32.61234" dir="ltr">
-            </div>
-            <div class="form-group" style="margin:0;">
-              <label class="form-label">خط الطول *</label>
-              <input type="number" step="any" class="form-input" id="agentLng" placeholder="44.00123" dir="ltr">
-            </div>
+          <div class="modal-body">
+            ${agentFormFields('ag')}
           </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
-            <div class="form-group" style="margin:0;">
-              <label class="form-label">المحافظة *</label>
-              <select class="form-input" id="agentGov"
-                onchange="updateAgentDistricts(this.value,'agentDist')">
-                ${govOptions()}
-              </select>
-            </div>
-            <div class="form-group" style="margin:0;">
-              <label class="form-label">القضاء *</label>
-              <select class="form-input" id="agentDist">
-                <option value="">— اختر المحافظة أولاً —</option>
-              </select>
-            </div>
+          <div class="modal-footer">
+            <button class="btn btn-ghost" onclick="document.getElementById('addAgentModal').style.display='none'">إلغاء</button>
+            <button class="btn btn-primary" id="addAgentBtn" onclick="submitAddAgent()">
+              <i class="fas fa-plus"></i> إضافة
+            </button>
           </div>
-          <div class="form-group" style="margin-bottom:14px;">
-            <label class="form-label">Telegram Chat ID <span style="color:var(--text-muted);font-size:0.78rem;">(لاستلام إشعارات الطلبات)</span></label>
-            <input type="text" class="form-input" id="agentTelegramId" placeholder="مثال: 123456789" dir="ltr" inputmode="numeric">
-            <div style="font-size:0.72rem;color:var(--text-muted);margin-top:3px;">
-              ابعث <code>/start</code> لبوت التلجرام ← انسخ الـ Chat ID من <a href="https://t.me/userinfobot" target="_blank" style="color:var(--gold);">@userinfobot</a>
-            </div>
-          </div>
-          <div class="form-group" style="margin-bottom:14px;">
-            <label class="form-label">ربط بحساب مستخدم</label>
-            <select class="form-input" id="agentUserId">
-              ${userOptions()}
-            </select>
-            <div style="font-size:0.72rem;color:var(--text-muted);margin-top:3px;">
-              سيُمنح الحساب المختار صلاحية <strong>وكيل</strong> ويتمكن من الدخول للوحة الوكيل
-            </div>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:6px;">
-            <div class="form-group" style="margin:0;">
-              <label class="form-label">عمولة الوكيل</label>
-              <div style="display:grid;grid-template-columns:110px 1fr;gap:6px;margin-bottom:3px;">
-                <select class="form-input" id="agentCommType">
-                  <option value="percent">نسبة %</option>
-                  <option value="fixed">مبلغ ثابت</option>
-                </select>
-                <input type="number" min="0" class="form-input" id="agentCommRate"
-                  placeholder="${defaultCommissionRate}" dir="ltr">
-              </div>
-              <div style="font-size:0.72rem;color:var(--text-muted);">فارغ = تطبيق الافتراضية</div>
-            </div>
-            <div class="form-group" style="margin:0;">
-              <label class="form-label">نطاق التغطية (كيلومتر) *</label>
-              <input type="number" min="1" max="100" step="any" class="form-input" id="agentCoverageKm"
-                placeholder="8" dir="ltr">
-              <div style="font-size:0.72rem;color:var(--text-muted);margin-top:3px;">المسافة التي يغطيها هذا الوكيل</div>
-            </div>
-          </div>
-          <div style="font-size:0.78rem;color:var(--text-muted);display:flex;gap:6px;align-items:center;margin-bottom:16px;">
-            <i class="fas fa-lightbulb" style="color:var(--gold);"></i>
-            افتح Google Maps ← اضغط على موقع الوكيل ← انسخ الإحداثيات
-          </div>
-          <button onclick="submitAddAgent()" class="btn btn-primary btn-block" id="addAgentBtn">
-            <i class="fas fa-plus"></i> إضافة الوكيل
-          </button>
         </div>
       </div>
 
-      <!-- Edit Modal -->
+      <!-- Edit Agent Modal -->
       <div id="editAgentModal" class="modal-overlay" style="display:none;">
-        <div class="modal-box" style="max-width:460px;">
+        <div class="modal-box" style="max-width:480px;max-height:90vh;overflow-y:auto;">
           <div class="modal-header">
             <div class="modal-title"><i class="fas fa-user-edit"></i> تعديل بيانات الوكيل</div>
             <button class="modal-close" onclick="document.getElementById('editAgentModal').style.display='none'">✕</button>
           </div>
-          <div class="modal-body">
+          <div class="modal-body" id="editAgentBody">
             <input type="hidden" id="editAgentId">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-              <div class="form-group" style="margin:0;">
-                <label class="form-label">الاسم</label>
-                <input type="text" class="form-input" id="editAgentName">
-              </div>
-              <div class="form-group" style="margin:0;">
-                <label class="form-label">الهاتف</label>
-                <input type="text" class="form-input" id="editAgentPhone" dir="ltr">
-              </div>
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
-              <div class="form-group" style="margin:0;">
-                <label class="form-label">خط العرض</label>
-                <input type="number" step="any" class="form-input" id="editAgentLat" dir="ltr">
-              </div>
-              <div class="form-group" style="margin:0;">
-                <label class="form-label">خط الطول</label>
-                <input type="number" step="any" class="form-input" id="editAgentLng" dir="ltr">
-              </div>
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
-              <div class="form-group" style="margin:0;">
-                <label class="form-label">عمولة الوكيل</label>
-                <div style="display:grid;grid-template-columns:100px 1fr;gap:6px;margin-bottom:2px;">
-                  <select class="form-input" id="editAgentCommType">
-                    <option value="percent">نسبة %</option>
-                    <option value="fixed">مبلغ ثابت</option>
-                  </select>
-                  <input type="number" min="0" class="form-input" id="editAgentCommRate" dir="ltr">
-                </div>
-                <div style="font-size:0.7rem;color:var(--text-muted);">فارغ = افتراضية</div>
-              </div>
-              <div class="form-group" style="margin:0;">
-                <label class="form-label">نطاق التغطية (كيلومتر)</label>
-                <input type="number" min="1" max="100" step="any" class="form-input" id="editAgentCoverageKm" dir="ltr">
-                <div style="font-size:0.7rem;color:var(--text-muted);margin-top:2px;">المسافة التي يغطيها الوكيل</div>
-              </div>
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
-              <div class="form-group" style="margin:0;">
-                <label class="form-label">المحافظة</label>
-                <select class="form-input" id="editAgentGov"
-                  onchange="updateAgentDistricts(this.value,'editAgentDist')">
-                  ${govOptions()}
-                </select>
-              </div>
-              <div class="form-group" style="margin:0;">
-                <label class="form-label">القضاء</label>
-                <select class="form-input" id="editAgentDist">
-                  <option value="">— اختر المحافظة أولاً —</option>
-                </select>
-              </div>
-            </div>
-            <div class="form-group" style="margin-top:12px;margin-bottom:0;">
-              <label class="form-label">Telegram Chat ID</label>
-              <input type="text" class="form-input" id="editAgentTelegramId" dir="ltr" inputmode="numeric">
-            </div>
-            <div class="form-group" style="margin-top:12px;margin-bottom:0;">
-              <label class="form-label">ربط بحساب مستخدم</label>
-              <select class="form-input" id="editAgentUserId">
-                ${userOptions()}
-              </select>
-            </div>
           </div>
           <div class="modal-footer">
             <button class="btn btn-ghost" onclick="document.getElementById('editAgentModal').style.display='none'">إلغاء</button>
@@ -2705,62 +2658,58 @@
       </div>
     `;
 
+    window.openAddAgentModal = function() {
+      document.getElementById('addAgentModal').style.display = 'flex';
+    };
+
     window.submitAddAgent = async function() {
       const btn         = document.getElementById('addAgentBtn');
-      const name        = document.getElementById('agentName').value.trim();
-      const phone       = document.getElementById('agentPhone').value.trim();
-      const lat         = parseFloat(document.getElementById('agentLat').value);
-      const lng         = parseFloat(document.getElementById('agentLng').value);
-      const coverageKm  = parseFloat(document.getElementById('agentCoverageKm').value);
-      const commRaw     = document.getElementById('agentCommRate').value;
-      const governorate = document.getElementById('agentGov').value;
-      const district    = document.getElementById('agentDist').value;
-      const linkedUserId = document.getElementById('agentUserId').value;
+      const name        = document.getElementById('agName').value.trim();
+      const phone       = document.getElementById('agPhone').value.trim();
+      const lat         = parseFloat(document.getElementById('agLat').value);
+      const lng         = parseFloat(document.getElementById('agLng').value);
+      const coverageKm  = parseFloat(document.getElementById('agCoverageKm').value);
+      const governorate = document.getElementById('agGov').value;
+      const district    = document.getElementById('agDist').value;
+      const commRaw     = document.getElementById('agCommRate').value;
+      const telegramId  = document.getElementById('agTelegramId').value.trim() || null;
+      const linkedUserId = document.getElementById('agUserId').value;
 
       if (!name || !phone || isNaN(lat) || isNaN(lng) || isNaN(coverageKm)) {
-        showToast('يرجى تعبئة جميع الحقول المطلوبة بما فيها نطاق التغطية', 'warning'); return;
+        showToast('يرجى تعبئة الاسم والهاتف والإحداثيات والتغطية', 'warning'); return;
       }
       if (!governorate || !district) {
         showToast('يرجى اختيار المحافظة والقضاء', 'warning'); return;
       }
       btn.disabled = true;
-      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الإضافة...';
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
       try {
-        const telegramId  = document.getElementById('agentTelegramId').value.trim() || null;
         const agentData = { name, phone, lat, lng, coverageKm, governorate, district, active: true, createdAt: new Date().toISOString() };
         if (telegramId) agentData.telegramId = telegramId;
         if (commRaw !== '') {
           agentData.commissionRate = parseFloat(commRaw);
-          agentData.commissionType = document.getElementById('agentCommType').value;
+          agentData.commissionType = document.getElementById('agCommType').value;
         }
         if (linkedUserId) {
           agentData.userId = linkedUserId;
           await setDoc(doc(db, 'users', linkedUserId), { role: 'agent' }, { merge: true });
         }
         await addDoc(collection(db, 'agents'), agentData);
+        document.getElementById('addAgentModal').style.display = 'none';
         showToast('✅ تم إضافة الوكيل', 'success');
         await renderAgentsPage(content);
-      } catch { showToast('حدث خطأ', 'error'); }
+      } catch (e) { showToast('حدث خطأ: ' + e.message, 'error'); }
       btn.disabled = false;
-      btn.innerHTML = '<i class="fas fa-plus"></i> إضافة الوكيل';
+      btn.innerHTML = '<i class="fas fa-plus"></i> إضافة';
     };
 
     window.openEditAgent = function(id) {
       const a = agents.find(x => x.id === id);
       if (!a) return;
-      document.getElementById('editAgentId').value             = id;
-      document.getElementById('editAgentName').value           = a.name           || '';
-      document.getElementById('editAgentPhone').value          = a.phone          || '';
-      document.getElementById('editAgentLat').value            = a.lat            || '';
-      document.getElementById('editAgentLng').value            = a.lng            || '';
-      document.getElementById('editAgentCommType').value       = a.commissionType ?? 'percent';
-      document.getElementById('editAgentCommRate').value       = a.commissionRate ?? '';
-      document.getElementById('editAgentCoverageKm').value     = a.coverageKm     ?? '';
-      document.getElementById('editAgentTelegramId').value     = a.telegramId     || '';
-      const govSel = document.getElementById('editAgentGov');
-      govSel.value = a.governorate || '';
-      updateAgentDistricts(a.governorate || '', 'editAgentDist', a.district || '');
-      document.getElementById('editAgentUserId').value = a.userId || '';
+      // رسم الحقول ديناميكياً بقيم الوكيل الحالية
+      document.getElementById('editAgentBody').innerHTML =
+        `<input type="hidden" id="editAgentId" value="${id}">` +
+        agentFormFields('editAg', a);
       document.getElementById('editAgentModal').style.display = 'flex';
     };
 
@@ -2768,40 +2717,37 @@
       const btn = document.getElementById('saveEditAgentBtn');
       btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
       try {
-        const id            = document.getElementById('editAgentId').value;
-        const commRaw       = document.getElementById('editAgentCommRate').value;
-        const coverageKmRaw = document.getElementById('editAgentCoverageKm').value;
-        const governorate   = document.getElementById('editAgentGov').value;
-        const district      = document.getElementById('editAgentDist').value;
-        const linkedUserId  = document.getElementById('editAgentUserId').value;
-        const telegramIdEdit = document.getElementById('editAgentTelegramId').value.trim();
+        const id           = document.getElementById('editAgentId').value;
+        const commRaw      = document.getElementById('editAgCommRate').value;
+        const coverageRaw  = document.getElementById('editAgCoverageKm').value;
+        const governorate  = document.getElementById('editAgGov').value;
+        const district     = document.getElementById('editAgDist').value;
+        const linkedUserId = document.getElementById('editAgUserId').value;
+        const telegramId   = document.getElementById('editAgTelegramId').value.trim() || null;
+
         const data = {
-          name:       document.getElementById('editAgentName').value.trim(),
-          phone:      document.getElementById('editAgentPhone').value.trim(),
-          lat:        parseFloat(document.getElementById('editAgentLat').value),
-          lng:        parseFloat(document.getElementById('editAgentLng').value),
-          telegramId: telegramIdEdit || null,
+          name:        document.getElementById('editAgName').value.trim(),
+          phone:       document.getElementById('editAgPhone').value.trim(),
+          lat:         parseFloat(document.getElementById('editAgLat').value),
+          lng:         parseFloat(document.getElementById('editAgLng').value),
+          telegramId,
           governorate: governorate || '',
           district:    district    || '',
-          updatedAt: new Date().toISOString()
+          updatedAt:   new Date().toISOString()
         };
         if (commRaw !== '') {
           data.commissionRate = parseFloat(commRaw);
-          data.commissionType = document.getElementById('editAgentCommType').value;
-        } else {
-          delete data.commissionRate;
-          delete data.commissionType;
+          data.commissionType = document.getElementById('editAgCommType').value;
         }
-        if (coverageKmRaw !== '') data.coverageKm = parseFloat(coverageKmRaw);
-        else delete data.coverageKm;
-        // Handle linked user change
+        if (coverageRaw !== '') data.coverageKm = parseFloat(coverageRaw);
+
+        // ربط الحساب / إلغاء الربط
         const oldAgent = agents.find(a => a.id === id);
         if (linkedUserId) {
           data.userId = linkedUserId;
           await setDoc(doc(db, 'users', linkedUserId), { role: 'agent' }, { merge: true });
         } else {
           data.userId = '';
-          // Revert old linked user's role back to customer if changed
           if (oldAgent?.userId && oldAgent.userId !== linkedUserId) {
             await setDoc(doc(db, 'users', oldAgent.userId), { role: 'customer' }, { merge: true });
           }
@@ -2810,7 +2756,7 @@
         document.getElementById('editAgentModal').style.display = 'none';
         showToast('✅ تم تحديث الوكيل', 'success');
         await renderAgentsPage(content);
-      } catch { showToast('حدث خطأ', 'error'); }
+      } catch (e) { showToast('حدث خطأ: ' + e.message, 'error'); }
       btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> حفظ';
     };
 
